@@ -1,4 +1,4 @@
-export type AgeGroup = '0-3' | '4-7' | '8-12' | '13-18'
+export type AgeGroup = '0-3' | '4-7' | '8-12' | '13-18' | '0-12'
 
 export type Question = {
   id: number

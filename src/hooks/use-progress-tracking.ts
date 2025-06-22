@@ -4,6 +4,7 @@ import { useToast } from '@/components/ui/use-toast'
 import {
   ProgressDashboardData,
   Milestone,
+  MilestoneType,
   ProgressNote,
   Intervention,
   CreateMilestoneRequest,
@@ -72,7 +73,7 @@ export function useProgressTracking(childId: string) {
             return acc
           }, {})
         ).map(([type, data]: [string, any]) => ({
-          milestone_type: type,
+          milestone_type: type as MilestoneType,
           total_milestones: data.total,
           achieved_milestones: data.achieved,
           progress_percentage: data.total > 0 ? (data.achieved / data.total) * 100 : 0

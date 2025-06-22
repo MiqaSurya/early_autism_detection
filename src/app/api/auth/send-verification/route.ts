@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server'
 import sgMail from '@sendgrid/mail'
 
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error('SENDGRID_API_KEY is not set')
-}
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-
 export async function POST(request: Request) {
   try {
+    // Check for SendGrid API key at runtime
+    if (!process.env.SENDGRID_API_KEY) {
+      return NextResponse.json(
+        { error: 'Email service not configured' },
+        { status: 500 }
+      )
+    }
+
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY)
     const { email, verificationToken } = await request.json()
 
     const verificationLink = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/verify?token=${verificationToken}`
