@@ -5,10 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle } 
 import L from 'leaflet';
 import dynamic from 'next/dynamic';
 
-// Import Leaflet CSS only on client side
-if (typeof window !== 'undefined') {
-  import('leaflet/dist/leaflet.css');
-}
+// Leaflet CSS is imported in globals.css
 
 // Dynamic import for LocationDetector to prevent SSR issues
 const LocationDetector = dynamic(() => import('./location-detector'), {

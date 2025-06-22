@@ -9,12 +9,15 @@ import { useSavedLocations } from '@/hooks/use-saved-locations';
 import { AutismCenter, LocationType } from '@/types/location';
 import { openDirections, copyCoordinates, openSimpleDirections } from '@/utils/directions';
 
-// Temporarily disable map for build
-const Map = (props: any) => (
-  <div className="h-96 w-full bg-gray-200 rounded-lg flex items-center justify-center">
-    <span className="text-gray-500">Map temporarily disabled for deployment</span>
-  </div>
-);
+// Dynamic import for map component to prevent SSR issues
+const Map = dynamic(() => import('@/components/map/map'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 w-full bg-gray-200 rounded-lg flex items-center justify-center">
+      <span className="text-gray-500">Loading map...</span>
+    </div>
+  )
+});
 
 // Type filter options
 const TYPE_FILTERS: { value: LocationType | 'all'; label: string; color: string }[] = [

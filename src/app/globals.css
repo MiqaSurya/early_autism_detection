@@ -5,7 +5,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leaflet CSS */
+/* Import Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
+/* Leaflet CSS Overrides */
 .leaflet-container {
   width: 100%;
   height: 100%;
