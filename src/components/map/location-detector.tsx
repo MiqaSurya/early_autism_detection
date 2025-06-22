@@ -79,7 +79,7 @@ export default function LocationDetector({
 
   // Add a location button to the map
   useEffect(() => {
-    if (!map) return; // Exit early if map is not available
+    if (!map || typeof window === 'undefined') return; // Exit early if map is not available or on server
 
     // Create a custom control for location detection
     const LocationControl = L.Control.extend({

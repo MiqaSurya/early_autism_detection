@@ -2,6 +2,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+
 // GET all saved locations for the current user
 export async function GET() {
   const supabase = createRouteHandlerClient({ cookies })

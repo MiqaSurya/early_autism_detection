@@ -71,10 +71,12 @@ NEXT_PUBLIC_GMAPS_KEY=your_google_maps_api_key
 
 ## Setup Instructions
 
+### Local Development
+
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/early-autism-detector.git
-   cd early-autism-detector
+   git clone https://github.com/MiqaSurya/early_autism_detection.git
+   cd early_autism_detection
    ```
 
 2. Install dependencies:
@@ -82,19 +84,35 @@ NEXT_PUBLIC_GMAPS_KEY=your_google_maps_api_key
    npm install
    ```
 
-3. Set up Supabase:
-   - Create a new Supabase project
-   - Set up the following tables:
-     - users (auth.users extension)
-     - questionnaire_responses
-     - saved_locations (future feature)
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your actual values
+   ```
 
-4. Run the development server:
+4. Set up Supabase:
+   - Create a new Supabase project
+   - Run the SQL setup scripts in the `supabase/` directory
+   - Update your environment variables with Supabase credentials
+
+5. Run the development server:
    ```bash
    npm run dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Production Deployment on Vercel
+
+For detailed deployment instructions, see [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+
+**Quick Deploy:**
+1. Fork this repository
+2. Connect to Vercel
+3. Set environment variables
+4. Deploy!
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/MiqaSurya/early_autism_detection)
 
 ## Database Schema
 
