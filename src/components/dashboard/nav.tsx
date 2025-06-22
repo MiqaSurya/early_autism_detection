@@ -23,8 +23,10 @@ export function DashboardNav({ user }: DashboardNavProps) {
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', match: pathname === '/dashboard' },
     { href: '/dashboard/questionnaire', label: 'Questionnaire', match: pathname.startsWith('/dashboard/questionnaire') },
+    { href: '/dashboard/progress', label: 'Progress', match: pathname.startsWith('/dashboard/progress') },
     { href: '/dashboard/chat', label: 'AI Chat', match: pathname === '/dashboard/chat' },
     { href: '/dashboard/locator', label: 'Find Centers', match: pathname === '/dashboard/locator' },
+    { href: '/dashboard/saved-locations', label: 'Saved Locations', match: pathname === '/dashboard/saved-locations' },
   ]
 
   return (

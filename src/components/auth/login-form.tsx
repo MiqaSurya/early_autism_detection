@@ -2,42 +2,58 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
 
+
+  const handleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Starting login process...');
+      
+      // Simple validation
+      if (!email || !password) {
+        setError('Please enter both email and password')
+        return
+      }
+      
+      setLoading(true)
+      setError('')
+
+      console.log('Attempting to sign in with Supabase...');
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (error) throw error
+      console.log('Sign in response:', { data, error });
 
+      if (error) {
+        throw error
+      }
+
+      console.log('Login successful, redirecting to dashboard...');
+      // Redirect to dashboard on success
       router.push('/dashboard')
-      router.refresh()
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during login')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       {error && (
-        <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
@@ -52,7 +68,8 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full p-2 border rounded-lg"
+          className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={loading}
         />
       </div>
 
@@ -66,17 +83,28 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full p-2 border rounded-lg"
+          className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={loading}
         />
       </div>
 
       <button
-        type="submit"
+        type="button"
+        onClick={handleLogin}
         disabled={loading}
-        className="btn-primary w-full"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50"
       >
         {loading ? 'Signing in...' : 'Sign In'}
       </button>
-    </form>
+      
+      <div className="text-center mt-4">
+        <p>
+          Don't have an account?{' '}
+          <Link href="/auth/signup" className="text-blue-600 hover:underline">
+            Register
+          </Link>
+        </p>
+      </div>
+    </div>
   )
 }

@@ -1,0 +1,10 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\supabase",
+    "\\supabase\\migrations"
+  ],
+  "SelectedNode": "\\supabase\\migrations\\00001_email_verification.sql",
+  "PreviewInSolutionExplorer": false
+}

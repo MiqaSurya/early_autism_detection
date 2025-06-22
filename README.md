@@ -1,14 +1,47 @@
-# Autism Early Detection Companion (AEDCompanion)
+# 🧠 Early Autism Detector
 
-A web application designed to help parents and caregivers identify potential early signs of autism spectrum disorder (ASD) through a structured questionnaire, provide immediate AI-powered information about autism, and locate nearby diagnostic centers and treatment facilities.
+A comprehensive web application for early autism screening using the M-CHAT-R (Modified Checklist for Autism in Toddlers - Revised) assessment tool. Built with Next.js, TypeScript, and Supabase.
 
-## Features
+## ✨ Features
 
-- Early Signs Questionnaire (M-CHAT-R inspired)
-- AI-powered Information Chat
-- Treatment Center Locator
-- User Authentication
-- Responsive Design
+### 🔐 Authentication & User Management
+- Secure user registration and login
+- Email verification and password reset
+- Protected routes with middleware
+
+### 👶 Child Profile Management
+- Create and manage multiple child profiles
+- Track child information (name, date of birth, gender, notes)
+- Delete child profiles with confirmation
+- Age calculation and display
+
+### 📋 M-CHAT-R Assessment
+- Official M-CHAT-R questionnaire implementation
+- 20 evidence-based questions
+- Child selection before assessment
+- Real-time progress tracking
+- Automatic scoring algorithm
+
+### 📊 Progress Tracking & History
+- Complete assessment history per child
+- Visual timeline of assessments
+- Score progression tracking
+- Risk level visualization (Low/Medium/High)
+- Improvement/decline indicators
+- Recommended actions based on results
+
+### 🗺️ Autism Center Locator
+- Interactive map with autism centers
+- Search and filter functionality
+- Center details and contact information
+- Save favorite centers
+- Get directions to centers
+
+### 🎨 Modern UI/UX
+- Responsive design for all devices
+- Clean, accessible interface
+- Toast notifications for user feedback
+- Loading states and error handling
 
 ## Tech Stack
 

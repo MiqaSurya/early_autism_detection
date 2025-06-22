@@ -6,12 +6,13 @@
 
 **Platform**: Web application (responsive design for all devices)
 
-**Vision & Goals**: AEDCompanion is designed to help parents and caregivers identify potential early signs of autism spectrum disorder (ASD) through a structured questionnaire, provide immediate AI-powered information about autism, and locate nearby diagnostic centers and treatment facilities. The app aims to bridge the gap between initial concerns and professional help by providing reliable resources in a simple, accessible interface.
+**Vision & Goals**: AEDCompanion is designed to help parents and caregivers identify potential signs of autism spectrum disorder (ASD) across different developmental stages through age-appropriate questionnaires. The app provides immediate AI-powered information about autism and helps locate nearby diagnostic centers and treatment facilities. Our goal is to support families throughout their journey, from initial screening to ongoing support, by providing reliable resources in a simple, accessible interface.
 
 **Primary Use Case**: 
-1. Parents noticing developmental differences in their child (ages 18 months - 5 years)
-2. Caregivers wanting to understand autism symptoms better
-3. Individuals seeking nearby autism support services
+1. Parents and caregivers screening children (ages 12 months - 18 years) using age-specific assessment tools
+2. Healthcare providers using the platform as a preliminary screening tool
+3. Families seeking age-appropriate resources and nearby support services
+4. Educational professionals looking for autism screening tools and resources
 
 **Authentication Requirements**:
 - Email/password signup and login via Supabase Auth
@@ -27,6 +28,15 @@
 
 **UI Library**: 
 - Tailwind CSS for utility-first styling
+- shadcn/ui for accessible and customizable components
+
+**Authentication & Database**:
+- Supabase Auth for user management and session handling
+- Supabase PostgreSQL for structured data storage
+
+**Maps & Location Services**:
+- Leaflet.js with OpenStreetMap for interactive maps
+- Supabase PostGIS for geospatial queries
 - ShadCN for accessible, pre-built components (buttons, forms, dialogs)
 
 **Backend (BaaS)**: 
@@ -37,10 +47,12 @@
 
 **APIs & Services**:
 - OpenAI API (GPT-4) for information chatbot
-- Google Maps API for location services
+- OpenStreetMap Nominatim API for geocoding
 
-**Deployment**: 
-- Vercel for CI/CD and hosting
+**Deployment & Infrastructure**: 
+- Vercel for frontend hosting and CI/CD
+- Supabase Cloud for backend infrastructure
+- GitHub Actions for automated testing and deployment
 
 ## 3. Core Features
 
@@ -58,15 +70,19 @@
 - Persistent logout button in header
 - User profile quick access
 
-### 3. Early Signs Questionnaire
-- 20-30 validated screening questions (M-CHAT inspired)
-- Binary (Yes/No) response format
-- Progress indicator
-- Adaptive questioning based on responses
-- Results calculation with:
-  - Risk level indicator (low/medium/high)
-  - Printable summary
-  - Recommended next steps
+### 3. Age-Specific Screening Tools
+- Multiple validated questionnaires for different age groups:
+  - Toddler (12-36 months): M-CHAT-R inspired
+  - Preschool (3-5 years): PARS adapted
+  - School-age (6-12 years): CAST based
+  - Adolescent (13-18 years): AQ inspired
+- Adaptive questioning based on age and responses
+- Progress indicator with age-appropriate visuals
+- Comprehensive results including:
+  - Age-normalized risk assessment
+  - Developmental milestone tracking
+  - Printable summary with age-specific recommendations
+  - Customized next steps based on age and risk level
 
 ### 4. Autism Information Chat
 - OpenAI-powered chatbot interface
@@ -148,8 +164,13 @@
 ### Supabase Setup
 1. Tables:
    - `users` (auth extended profiles)
-   - `questionnaire_responses` (user_id, answers, score)
-   - `saved_locations` (future feature)
+   - `children` (user_id, name, date_of_birth, gender)
+   - `questionnaires` (age_group, type, version)
+   - `questions` (questionnaire_id, text, category, age_group)
+   - `assessments` (child_id, questionnaire_id, started_at, completed_at)
+   - `responses` (assessment_id, question_id, answer)
+   - `scoring_ranges` (questionnaire_id, min_score, max_score, risk_level)
+   - `centers` (name, location, services, PostGIS point)
 
 2. Row Level Security:
    - User can only access their own data

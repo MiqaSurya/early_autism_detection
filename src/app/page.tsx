@@ -1,59 +1,121 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function Home() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!email || !password) {
+      setError('Please enter both email and password')
+      return
+    }
+    
+    setLoading(true)
+    setError('')
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      if (error) {
+        throw error
+      }
+      
+      // Redirect to dashboard on success
+      router.push('/dashboard')
+    } catch (error: any) {
+      setError(error.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-primary mb-4">
-            Autism Early Detection Companion
+    <div className="min-h-screen flex">
+      {/* Left pink section */}
+      <div className="w-1/6 bg-pink-200"></div>
+      
+      {/* Center blue section */}
+      <div className="w-1/6 bg-blue-300"></div>
+      
+      {/* Main content section */}
+      <div className="flex-1 bg-[#fcf9f3] flex flex-col items-center justify-center relative">
+        {/* Dotted pattern overlay - right side */}
+        <div className="absolute inset-0 opacity-10" style={{ 
+          backgroundImage: 'radial-gradient(circle, #f472b6 1px, transparent 1px)',
+          backgroundSize: '20px 20px'
+        }}></div>
+
+        {/* Main content */}
+        <div className="z-10 w-full max-w-md px-8">
+          <h1 className="text-5xl font-black text-center mb-20 tracking-tight">
+            WELCOME TO DETECTING EARLY SIGN OF AUTISM
           </h1>
-          <p className="text-lg text-neutral-600">
-            Supporting parents and caregivers in understanding early signs of autism
-          </p>
-        </header>
+          
+          <form onSubmit={handleLogin} className="space-y-8">
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+            
+            <div>
+              <label htmlFor="email" className="block text-xl font-bold mb-2">ENTER ID :</label>
+              <input
+                type="email"
+                id="email"
+                placeholder="ENTER ID"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full py-4 px-4 rounded-full bg-pink-400 text-center text-black font-medium placeholder-black/80"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-xl font-bold mb-2">ENTER PASSWORD :</label>
+              <input
+                type="password"
+                id="password"
+                placeholder="ENTER PASSWORD"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full py-4 px-4 rounded-full bg-pink-400 text-center text-black font-medium placeholder-black/80"
+              />
+            </div>
+            
+            <div className="flex justify-center">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-300 hover:bg-blue-400 text-black font-bold py-3 px-12 rounded-full"
+              >
+                {loading ? 'LOGGING IN...' : 'LOGIN'}
+              </button>
+            </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="card">
-            <h2 className="text-2xl font-semibold mb-4">For Parents & Caregivers</h2>
-            <p className="mb-6">
-              Notice developmental differences in your child? Our structured questionnaire
-              and AI-powered information can help you take the next step.
-            </p>
-            <Link href="/auth/signup" className="btn-primary inline-block">
-              Get Started
-            </Link>
-          </div>
-
-          <div className="card">
-            <h2 className="text-2xl font-semibold mb-4">Already a Member?</h2>
-            <p className="mb-6">
-              Access your dashboard to continue your assessment or find resources.
-            </p>
-            <Link href="/auth/login" className="btn-secondary inline-block">
-              Sign In
-            </Link>
-          </div>
+            <div className="flex justify-center">
+              <Link
+                href="/auth/signup"
+                className="bg-pink-400 hover:bg-pink-500 text-black font-bold py-3 px-12 rounded-full"
+              >
+                REGISTER
+              </Link>
+            </div>
+          </form>
         </div>
-
-        <section className="mt-16">
-          <h2 className="text-2xl font-semibold mb-6 text-center">Key Features</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="card">
-              <h3 className="text-xl font-semibold mb-2">Early Signs Questionnaire</h3>
-              <p>Validated screening questions to help identify potential signs of autism.</p>
-            </div>
-            <div className="card">
-              <h3 className="text-xl font-semibold mb-2">AI Information Chat</h3>
-              <p>Get reliable information about autism from our AI-powered chatbot.</p>
-            </div>
-            <div className="card">
-              <h3 className="text-xl font-semibold mb-2">Treatment Center Locator</h3>
-              <p>Find nearby diagnostic centers and support services.</p>
-            </div>
-          </div>
-        </section>
       </div>
-    </main>
+    </div>
   )
 }

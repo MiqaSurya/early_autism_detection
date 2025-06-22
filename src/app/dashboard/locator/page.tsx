@@ -1,4 +1,4 @@
-import { LocationFinder } from '@/components/locator/location-finder'
+import OSMLocationFinder from '@/components/locator/osm-location-finder'
 
 export default function LocatorPage() {
   return (
@@ -11,7 +11,7 @@ export default function LocatorPage() {
         </p>
       </div>
 
-      <LocationFinder />
+      <OSMLocationFinder />
     </div>
   )
 }
