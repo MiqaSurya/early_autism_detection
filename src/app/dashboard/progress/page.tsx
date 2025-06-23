@@ -71,38 +71,39 @@ export default function ProgressPage() {
     setDeleteLoading(childId)
 
     try {
-      // First try normal deletion
-      let response = await fetch(`/api/children/${childId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      // Use direct Supabase deletion since constraints are now fixed with CASCADE
+      const { error } = await supabase
+        .from('children')
+        .delete()
+        .eq('id', childId)
 
-      let result = await response.json()
+      if (error) {
+        console.error('Supabase deletion error:', error)
 
-      // If normal deletion fails, try force delete
-      if (!response.ok) {
-        console.log('Normal deletion failed, trying force delete...')
-
-        response = await fetch(`/api/children/${childId}/force-delete`, {
+        // If direct deletion fails, try the API endpoint as fallback
+        const response = await fetch(`/api/children/${childId}/force-delete`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
           },
         })
 
-        result = await response.json()
+        const result = await response.json()
 
         if (!response.ok) {
-          throw new Error(result.error || 'Failed to delete child profile even with force delete')
+          throw new Error(result.error || `Database error: ${error.message}`)
         }
-      }
 
-      toast({
-        title: 'Profile Deleted',
-        description: result.message || `${childName}'s profile has been permanently deleted.`
-      })
+        toast({
+          title: 'Profile Deleted',
+          description: result.message || `${childName}'s profile has been permanently deleted.`
+        })
+      } else {
+        toast({
+          title: 'Profile Deleted',
+          description: `${childName}'s profile has been permanently deleted.`
+        })
+      }
 
       // Refresh the children list
       await fetchChildren()
@@ -117,20 +118,10 @@ export default function ProgressPage() {
       console.error('Delete error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete child profile'
 
-      // Show debug info in console
-      console.log('Fetching debug info...')
-      try {
-        const debugResponse = await fetch(`/api/children/${childId}/debug`)
-        const debugData = await debugResponse.json()
-        console.log('Debug info:', debugData)
-      } catch (debugErr) {
-        console.log('Could not fetch debug info:', debugErr)
-      }
-
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: `${errorMessage}. Check browser console for debug info, or contact support.`
+        title: 'Deletion Failed',
+        description: `${errorMessage}. Please run the database constraint fix script in Supabase SQL Editor.`
       })
     } finally {
       setDeleteLoading(null)
