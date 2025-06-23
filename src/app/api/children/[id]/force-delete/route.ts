@@ -122,7 +122,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     // Verify the child is actually deleted
-    const { data: verifyChild } = await supabase
+    const { data: verifyChild, error: verifyError } = await supabase
       .from('children')
       .select('id')
       .eq('id', id)
@@ -130,9 +130,36 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     if (verifyChild) {
       console.log(`❌ Child still exists after deletion attempts`)
-      return NextResponse.json({ 
-        error: 'Failed to delete child profile completely. Some data may still exist.' 
-      }, { status: 500 })
+
+      // Try one more direct deletion attempt
+      console.log(`🔄 Attempting final direct deletion...`)
+      const { error: finalDeleteError } = await supabase
+        .from('children')
+        .delete()
+        .eq('id', id)
+        .eq('parent_id', session.user.id)
+
+      if (finalDeleteError) {
+        console.log(`❌ Final deletion failed: ${finalDeleteError.message}`)
+        return NextResponse.json({
+          error: `Failed to delete child profile: ${finalDeleteError.message}`,
+          details: 'Child profile and some related data may still exist'
+        }, { status: 500 })
+      }
+
+      // Verify again
+      const { data: verifyAgain } = await supabase
+        .from('children')
+        .select('id')
+        .eq('id', id)
+        .single()
+
+      if (verifyAgain) {
+        return NextResponse.json({
+          error: 'Child profile could not be deleted. There may be hidden constraints preventing deletion.',
+          details: 'Please try the manual SQL deletion method'
+        }, { status: 500 })
+      }
     }
 
     console.log(`🎉 SUCCESS: Child profile ${child.name} has been completely deleted`)
