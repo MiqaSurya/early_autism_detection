@@ -1,4 +1,4 @@
-import OSMLocationFinder from '@/components/locator/osm-location-finder'
+import GeoapifyLocationFinder from '@/components/locator/GeoapifyLocationFinder'
 
 export default function LocatorPage() {
   return (
@@ -11,7 +11,7 @@ export default function LocatorPage() {
         </p>
       </div>
 
-      <OSMLocationFinder />
+      <GeoapifyLocationFinder />
     </div>
   )
 }
