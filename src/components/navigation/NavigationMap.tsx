@@ -1,18 +1,30 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { NavigationRoute } from '@/lib/navigation'
+import dynamic from 'next/dynamic'
 
-// Fix for default markers in React Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-})
+// Dynamic imports to prevent SSR issues
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false })
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false })
+const Polyline = dynamic(() => import('react-leaflet').then(mod => mod.Polyline), { ssr: false })
+const useMap = dynamic(() => import('react-leaflet').then(mod => mod.useMap), { ssr: false })
+
+// Leaflet setup (only on client side)
+let L: any = null
+if (typeof window !== 'undefined') {
+  L = require('leaflet')
+  require('leaflet/dist/leaflet.css')
+
+  // Fix for default markers in React Leaflet
+  delete (L.Icon.Default.prototype as any)._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  })
+}
 
 interface NavigationMapProps {
   userLocation: [number, number]
@@ -23,8 +35,9 @@ interface NavigationMapProps {
   onLocationUpdate?: (location: [number, number]) => void
 }
 
-// Custom icons
+// Custom icons (only create on client side)
 const createUserLocationIcon = () => {
+  if (!L) return null
   return L.divIcon({
     html: `
       <div style="
@@ -57,6 +70,7 @@ const createUserLocationIcon = () => {
 }
 
 const createDestinationIcon = () => {
+  if (!L) return null
   return L.divIcon({
     html: `
       <div style="
@@ -118,7 +132,7 @@ function MapController({
           coord[0] >= -180 && coord[0] <= 180
         )
 
-        if (validCoords.length > 0) {
+        if (validCoords.length > 0 && L) {
           const bounds = L.latLngBounds(
             validCoords.map(coord => [coord[1], coord[0]] as [number, number])
           )

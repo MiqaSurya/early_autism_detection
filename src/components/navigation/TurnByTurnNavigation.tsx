@@ -5,25 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { X, Volume2, VolumeX, Navigation, Phone, MapPin } from 'lucide-react'
 import { NavigationRoute, RouteStep, getManeuverIcon, formatDistance, formatDuration, getEstimatedArrival, getCurrentStep, getVoiceInstruction } from '@/lib/navigation'
-import dynamic from 'next/dynamic'
-
-// Dynamic import with fallback
-const NavigationMap = dynamic(() => import('./NavigationMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-        <div className="text-sm text-gray-600">Loading map...</div>
-      </div>
-    </div>
-  )
-})
-
-// Fallback component
-const SimpleNavigationMap = dynamic(() => import('./SimpleNavigationMap'), {
-  ssr: false
-})
+import SSRSafeNavigationMap from './SSRSafeNavigationMap'
 
 interface TurnByTurnNavigationProps {
   route: NavigationRoute
@@ -51,7 +33,6 @@ export default function TurnByTurnNavigation({
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [hasSpoken, setHasSpoken] = useState(false)
-  const [useSimpleMap, setUseSimpleMap] = useState(false)
 
   // Get current step based on user location
   useEffect(() => {
@@ -195,34 +176,14 @@ export default function TurnByTurnNavigation({
 
       {/* Map Area */}
       <div className="flex-1 relative">
-        {useSimpleMap ? (
-          <SimpleNavigationMap
-            userLocation={userLocation}
-            destination={[destination.latitude, destination.longitude]}
-            route={route}
-            currentStepIndex={currentStepIndex}
-            onLocationUpdate={onLocationUpdate}
-            className="absolute inset-0"
-          />
-        ) : (
-          <NavigationMap
-            userLocation={userLocation}
-            destination={[destination.latitude, destination.longitude]}
-            route={route}
-            currentStepIndex={currentStepIndex}
-            onLocationUpdate={onLocationUpdate}
-            className="absolute inset-0"
-          />
-        )}
-
-        {/* Map toggle button */}
-        <button
-          onClick={() => setUseSimpleMap(!useSimpleMap)}
-          className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-lg text-sm"
-          title={useSimpleMap ? 'Switch to detailed map' : 'Switch to simple view'}
-        >
-          {useSimpleMap ? '🗺️' : '📱'}
-        </button>
+        <SSRSafeNavigationMap
+          userLocation={userLocation}
+          destination={[destination.latitude, destination.longitude]}
+          route={route}
+          currentStepIndex={currentStepIndex}
+          onLocationUpdate={onLocationUpdate}
+          className="absolute inset-0"
+        />
       </div>
 
       {/* Bottom Controls */}

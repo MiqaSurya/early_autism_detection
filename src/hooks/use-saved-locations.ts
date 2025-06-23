@@ -8,60 +8,97 @@ export function useSavedLocations() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // Fetch all saved locations
+  // Fetch all saved locations (fallback to localStorage for now)
   const fetchSavedLocations = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      const response = await fetch('/api/saved-locations')
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch saved locations')
+      // Try API first, fallback to localStorage
+      try {
+        const response = await fetch('/api/saved-locations')
+        if (response.ok) {
+          const data = await response.json()
+          setSavedLocations(data)
+          setLoading(false)
+          return
+        }
+      } catch (apiError) {
+        console.log('API not available, using localStorage fallback')
       }
-      
-      const data = await response.json()
-      setSavedLocations(data)
+
+      // Fallback to localStorage
+      const stored = localStorage.getItem('saved-autism-centers')
+      if (stored) {
+        const data = JSON.parse(stored)
+        setSavedLocations(data)
+      } else {
+        setSavedLocations([])
+      }
     } catch (err) {
+      console.error('Error loading saved locations:', err)
+      setSavedLocations([])
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     } finally {
       setLoading(false)
     }
   }
 
-  // Save a new location
+  // Save a new location (with localStorage fallback)
   const saveLocation = async (location: Omit<SavedLocation, 'id' | 'user_id' | 'created_at'>) => {
     try {
-      const response = await fetch('/api/saved-locations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(location)
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to save location')
+      // Try API first
+      try {
+        const response = await fetch('/api/saved-locations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(location)
+        })
+
+        if (response.ok) {
+          const savedLocation = await response.json()
+          setSavedLocations([savedLocation, ...savedLocations])
+
+          toast({
+            title: 'Location saved',
+            description: `${location.name} has been added to your saved locations.`,
+          })
+
+          return savedLocation
+        }
+      } catch (apiError) {
+        console.log('API not available, using localStorage fallback')
       }
-      
-      const savedLocation = await response.json()
-      setSavedLocations([savedLocation, ...savedLocations])
-      
+
+      // Fallback to localStorage
+      const newLocation: SavedLocation = {
+        id: Date.now().toString(),
+        user_id: 'local-user',
+        created_at: new Date().toISOString(),
+        ...location
+      }
+
+      const updatedLocations = [newLocation, ...savedLocations]
+      setSavedLocations(updatedLocations)
+      localStorage.setItem('saved-autism-centers', JSON.stringify(updatedLocations))
+
       toast({
         title: 'Location saved',
         description: `${location.name} has been added to your saved locations.`,
       })
-      
-      return savedLocation
+
+      return newLocation
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
-      
+
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to save location. Please try again.',
       })
-      
+
       return null
     }
   }
