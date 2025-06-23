@@ -71,18 +71,32 @@ export default function ProgressPage() {
     setDeleteLoading(childId)
 
     try {
-      // Use the API endpoint for reliable deletion with proper cascade handling
-      const response = await fetch(`/api/children/${childId}`, {
+      // First try normal deletion
+      let response = await fetch(`/api/children/${childId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
       })
 
-      const result = await response.json()
+      let result = await response.json()
 
+      // If normal deletion fails, try force delete
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete child profile')
+        console.log('Normal deletion failed, trying force delete...')
+
+        response = await fetch(`/api/children/${childId}/force-delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to delete child profile even with force delete')
+        }
       }
 
       toast({
@@ -102,10 +116,21 @@ export default function ProgressPage() {
     } catch (err) {
       console.error('Delete error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete child profile'
+
+      // Show debug info in console
+      console.log('Fetching debug info...')
+      try {
+        const debugResponse = await fetch(`/api/children/${childId}/debug`)
+        const debugData = await debugResponse.json()
+        console.log('Debug info:', debugData)
+      } catch (debugErr) {
+        console.log('Could not fetch debug info:', debugErr)
+      }
+
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: `${errorMessage}. Please try again or contact support if the issue persists.`
+        description: `${errorMessage}. Check browser console for debug info, or contact support.`
       })
     } finally {
       setDeleteLoading(null)
