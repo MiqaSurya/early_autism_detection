@@ -17,7 +17,7 @@ import {
   formatDistance,
   getCategoryDisplayName
 } from '@/lib/poi'
-import { MapPin, Phone, Globe, Clock, Star, Wheelchair } from 'lucide-react'
+import { MapPin, Phone, Globe, Clock, Star, Accessibility } from 'lucide-react'
 
 // Your exact example coordinates
 const EXAMPLE_COORDINATES = {
@@ -364,7 +364,7 @@ export default function TestPOIPage() {
 
                   {place.wheelchair_accessible && (
                     <div className="flex items-center gap-2">
-                      <Wheelchair className="h-3 w-3 text-green-600" />
+                      <Accessibility className="h-3 w-3 text-green-600" />
                       <span className="text-green-600">Wheelchair Accessible</span>
                     </div>
                   )}

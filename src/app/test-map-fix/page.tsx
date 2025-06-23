@@ -32,12 +32,12 @@ export default function TestMapFixPage() {
         distance: 500,
         duration: 60,
         maneuver: 'straight',
-        coordinates: [[testCoords.user[1], testCoords.user[0]], [testCoords.destination[1], testCoords.destination[0]]]
+        coordinates: [[testCoords.user[1], testCoords.user[0]] as [number, number], [testCoords.destination[1], testCoords.destination[0]] as [number, number]]
       }
     ],
     totalDistance: 500,
     totalDuration: 60,
-    coordinates: [[testCoords.user[1], testCoords.user[0]], [testCoords.destination[1], testCoords.destination[0]]],
+    coordinates: [[testCoords.user[1], testCoords.user[0]] as [number, number], [testCoords.destination[1], testCoords.destination[0]] as [number, number]],
     summary: '0.5 km • 1 min'
   }
 

@@ -37,7 +37,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     // Check all related data
     const debugInfo = {
       child: child,
-      relatedData: {}
+      relatedData: {} as any,
+      constraints: null as any
     }
 
     // Check assessments

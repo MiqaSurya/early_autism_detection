@@ -286,7 +286,7 @@ export default function NavigationMap({
         zoomControl={false}
         attributionControl={false}
         whenCreated={() => setMapLoaded(true)}
-        onError={(error) => setMapError('Failed to load map')}
+        onError={(error: any) => setMapError('Failed to load map')}
       >
         {/* Geoapify tile layer */}
         <TileLayer

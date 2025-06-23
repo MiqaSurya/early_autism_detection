@@ -21,23 +21,23 @@ import { MapPin, Clock, Route, Car, User, Bike } from 'lucide-react'
 const EXAMPLE_ROUTES = {
   klToMidValley: {
     name: "KL to Mid Valley (Your Example)",
-    start: [101.6869, 3.1390], // KL
-    end: [101.7072, 3.0738]    // Mid Valley
+    start: [101.6869, 3.1390] as [number, number], // KL
+    end: [101.7072, 3.0738] as [number, number]    // Mid Valley
   },
   klToKLCC: {
     name: "KL to KLCC",
-    start: [101.6869, 3.1390], // KL
-    end: [101.7123, 3.1578]    // KLCC
+    start: [101.6869, 3.1390] as [number, number], // KL
+    end: [101.7123, 3.1578] as [number, number]    // KLCC
   },
   klToSunway: {
     name: "KL to Sunway Pyramid",
-    start: [101.6869, 3.1390], // KL
-    end: [101.6065, 3.0738]    // Sunway
+    start: [101.6869, 3.1390] as [number, number], // KL
+    end: [101.6065, 3.0738] as [number, number]    // Sunway
   },
   klToUM: {
     name: "KL to Universiti Malaya",
-    start: [101.6869, 3.1390], // KL
-    end: [101.6571, 3.1251]    // UM
+    start: [101.6869, 3.1390] as [number, number], // KL
+    end: [101.6571, 3.1251] as [number, number]    // UM
   }
 }
 
@@ -64,8 +64,8 @@ export default function TestRoutingPage() {
       console.log('Testing your exact routing code pattern...')
       
       // Your exact code
-      const start = [101.6869, 3.1390] // KL
-      const end = [101.7072, 3.0738]   // Mid Valley
+      const start = [101.6869, 3.1390] as [number, number] // KL
+      const end = [101.7072, 3.0738] as [number, number]   // Mid Valley
       
       const coordinates = await calculateRouteExact(start, end)
       

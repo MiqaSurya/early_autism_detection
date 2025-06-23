@@ -348,7 +348,7 @@ export default function GeoapifyLocationFinder() {
         <GeoapifyMap
           centers={centersWithDistance}
           userLocation={userLocation || undefined}
-          onCenterSelect={setSelectedCenter}
+          onCenterSelect={(center) => setSelectedCenter(center as AutismCenter)}
           className="h-full w-full"
           zoom={12}
         />
@@ -500,7 +500,10 @@ export default function GeoapifyLocationFinder() {
                         latitude: location.latitude,
                         longitude: location.longitude,
                         phone: location.phone,
-                        description: location.notes
+                        description: location.notes,
+                        verified: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
                       })}
                       className="flex items-center gap-1"
                     >
@@ -599,7 +602,10 @@ export default function GeoapifyLocationFinder() {
                         latitude: place.latitude,
                         longitude: place.longitude,
                         phone: place.phone,
-                        description: `${place.category} - Found via POI search`
+                        description: `${place.category} - Found via POI search`,
+                        verified: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
                       })}
                       className="flex items-center gap-1"
                     >

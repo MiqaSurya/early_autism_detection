@@ -16,7 +16,10 @@ const testCenter = {
   latitude: 37.4221,
   longitude: -122.0841,
   phone: '+1-650-253-0000',
-  description: 'Test center for navigation debugging'
+  description: 'Test center for navigation debugging',
+  verified: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
 }
 
 export default function TestSimpleNavigationPage() {

@@ -22,26 +22,26 @@ const createMockRoute = (from: [number, number], to: [number, number]) => ({
       distance: 500,
       duration: 60,
       maneuver: 'straight',
-      coordinates: [[from[1], from[0]], [to[1], to[0]]]
+      coordinates: [[from[1], from[0]] as [number, number], [to[1], to[0]] as [number, number]]
     },
     {
       instruction: 'Turn right onto Jalan Tun Razak',
       distance: 800,
       duration: 120,
       maneuver: 'turn-right',
-      coordinates: [[to[1], to[0]]]
+      coordinates: [[to[1], to[0]] as [number, number]]
     },
     {
       instruction: 'Arrive at destination',
       distance: 0,
       duration: 0,
       maneuver: 'arrive',
-      coordinates: [[to[1], to[0]]]
+      coordinates: [[to[1], to[0]] as [number, number]]
     }
   ],
   totalDistance: 1300,
   totalDuration: 180,
-  coordinates: [[from[1], from[0]], [(from[1] + to[1])/2, (from[0] + to[0])/2], [to[1], to[0]]],
+  coordinates: [[from[1], from[0]] as [number, number], [(from[1] + to[1])/2, (from[0] + to[0])/2] as [number, number], [to[1], to[0]] as [number, number]],
   summary: '1.3 km • 3 min'
 })
 

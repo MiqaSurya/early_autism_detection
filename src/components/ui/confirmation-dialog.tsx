@@ -7,7 +7,7 @@ import { Button } from './button'
 interface ConfirmationDialogProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: () => void
+  onConfirm?: () => void
   title: string
   description: string
   confirmText?: string
