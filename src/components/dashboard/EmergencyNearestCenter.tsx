@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle, Navigation, Phone, MapPin, Loader2 } from 'lucide-react'
 import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { getCurrentLocation, findNearestCenter } from '@/lib/geoapify'
+import FullNavigationScreen from '../navigation/FullNavigationScreen'
 
 export default function EmergencyNearestCenter() {
   const [isLoading, setIsLoading] = useState(false)
   const [nearestCenter, setNearestCenter] = useState<any>(null)
   const [distance, setDistance] = useState<number | null>(null)
+  const [showNavigation, setShowNavigation] = useState(false)
 
   const { centers, fetchCenters } = useAutismCenters({
     autoFetch: false
@@ -70,8 +72,7 @@ export default function EmergencyNearestCenter() {
 
   const handleEmergencyDirections = () => {
     if (nearestCenter) {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nearestCenter.latitude},${nearestCenter.longitude}`
-      window.open(googleMapsUrl, '_blank')
+      setShowNavigation(true)
     }
   }
 
@@ -108,7 +109,7 @@ export default function EmergencyNearestCenter() {
                 size="sm"
               >
                 <Navigation className="h-4 w-4 mr-2" />
-                Get Directions NOW
+                Navigate NOW
               </Button>
 
               {nearestCenter.phone && (
@@ -137,6 +138,14 @@ export default function EmergencyNearestCenter() {
             </div>
           </div>
         </div>
+
+        {/* Navigation Screen */}
+        {showNavigation && (
+          <FullNavigationScreen
+            destination={nearestCenter}
+            onClose={() => setShowNavigation(false)}
+          />
+        )}
       </Card>
     )
   }

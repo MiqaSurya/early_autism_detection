@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
 import NearestCenterCard from './NearestCenterCard'
 import QuickNearestButton from './QuickNearestButton'
+import FullNavigationScreen from '../navigation/FullNavigationScreen'
 
 // Dynamic import for Geoapify map component
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
@@ -44,6 +45,7 @@ export default function GeoapifyLocationFinder() {
   const [showFilters, setShowFilters] = useState(false)
   const [showSavedLocations, setShowSavedLocations] = useState(false)
   const [showNearestCenter, setShowNearestCenter] = useState(true)
+  const [navigationCenter, setNavigationCenter] = useState<AutismCenter | null>(null)
 
   // Use autism centers hook
   const {
@@ -131,8 +133,11 @@ export default function GeoapifyLocationFinder() {
   }
 
   const handleGetDirections = (center: AutismCenter) => {
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}`
-    window.open(googleMapsUrl, '_blank')
+    setNavigationCenter(center)
+  }
+
+  const handleCloseNavigation = () => {
+    setNavigationCenter(null)
   }
 
   // Check if a center is already saved
@@ -218,6 +223,7 @@ export default function GeoapifyLocationFinder() {
                 setSelectedCenter(center)
                 setShowNearestCenter(true)
               }}
+              onNavigate={handleGetDirections}
               className="w-full sm:w-auto"
             />
           )}
@@ -274,6 +280,7 @@ export default function GeoapifyLocationFinder() {
           centers={centersWithDistance}
           onCenterSelect={setSelectedCenter}
           onSaveCenter={handleSaveCenter}
+          onNavigate={handleGetDirections}
           isSaved={isSaved}
           className="mb-6"
         />
@@ -360,7 +367,7 @@ export default function GeoapifyLocationFinder() {
                   className="flex items-center gap-1"
                 >
                   <Navigation className="h-3 w-3" />
-                  Directions
+                  Navigate
                 </Button>
                 
                 <Button
@@ -437,14 +444,20 @@ export default function GeoapifyLocationFinder() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`
-                        window.open(googleMapsUrl, '_blank')
-                      }}
+                      onClick={() => handleGetDirections({
+                        id: location.id,
+                        name: location.name,
+                        type: location.type,
+                        address: location.address,
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        phone: location.phone,
+                        description: location.notes
+                      })}
                       className="flex items-center gap-1"
                     >
                       <Navigation className="h-3 w-3" />
-                      Directions
+                      Navigate
                     </Button>
                   </div>
                 </div>
@@ -452,6 +465,14 @@ export default function GeoapifyLocationFinder() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Full Navigation Screen */}
+      {navigationCenter && (
+        <FullNavigationScreen
+          destination={navigationCenter}
+          onClose={handleCloseNavigation}
+        />
       )}
     </div>
   )

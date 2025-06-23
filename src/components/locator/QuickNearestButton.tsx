@@ -9,12 +9,14 @@ import { getCurrentLocation, findNearestCenter } from '@/lib/geoapify'
 interface QuickNearestButtonProps {
   centers: AutismCenter[]
   onNearestFound?: (center: AutismCenter, distance: number) => void
+  onNavigate?: (center: AutismCenter) => void
   className?: string
 }
 
 export default function QuickNearestButton({
   centers,
   onNearestFound,
+  onNavigate,
   className = ""
 }: QuickNearestButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
@@ -51,12 +53,15 @@ export default function QuickNearestButton({
           onNearestFound(nearestCenter, distance)
         }
 
-        // Open directions immediately
-        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nearestCenter.latitude},${nearestCenter.longitude}`
-        window.open(googleMapsUrl, '_blank')
-
-        // Show success message
-        alert(`Found nearest center: ${nearestCenter.name} (${distance.toFixed(1)} km away)\n\nOpening directions in Google Maps...`)
+        // Start navigation if callback provided
+        if (onNavigate) {
+          onNavigate(nearestCenter)
+        } else {
+          // Fallback to external maps
+          const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nearestCenter.latitude},${nearestCenter.longitude}`
+          window.open(googleMapsUrl, '_blank')
+          alert(`Found nearest center: ${nearestCenter.name} (${distance.toFixed(1)} km away)\n\nOpening directions in Google Maps...`)
+        }
       } else {
         alert('No autism centers found in your area')
       }

@@ -11,6 +11,7 @@ interface NearestCenterCardProps {
   centers: AutismCenter[]
   onCenterSelect?: (center: AutismCenter) => void
   onSaveCenter?: (center: AutismCenter) => void
+  onNavigate?: (center: AutismCenter) => void
   isSaved?: (center: AutismCenter) => boolean
   className?: string
 }
@@ -19,6 +20,7 @@ export default function NearestCenterCard({
   centers,
   onCenterSelect,
   onSaveCenter,
+  onNavigate,
   isSaved,
   className = ""
 }: NearestCenterCardProps) {
@@ -90,9 +92,8 @@ export default function NearestCenterCard({
   }
 
   const handleGetDirections = () => {
-    if (nearestCenter) {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nearestCenter.latitude},${nearestCenter.longitude}`
-      window.open(googleMapsUrl, '_blank')
+    if (nearestCenter && onNavigate) {
+      onNavigate(nearestCenter)
     }
   }
 
@@ -240,9 +241,10 @@ export default function NearestCenterCard({
             onClick={handleGetDirections}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             size="sm"
+            disabled={!onNavigate}
           >
             <Navigation className="h-4 w-4" />
-            Get Directions
+            Navigate
           </Button>
 
           {nearestCenter.phone && (
