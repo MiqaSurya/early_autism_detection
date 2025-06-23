@@ -191,23 +191,48 @@ export default function GeoapifyMap({
         {/* Route polyline */}
         {showRoute && routeCoordinates.length > 0 && (
           <>
+            {/* Debug: Log route data */}
+            {console.log('🛣️ Attempting to render route:', {
+              showRoute,
+              coordinatesLength: routeCoordinates.length,
+              firstCoord: routeCoordinates[0],
+              lastCoord: routeCoordinates[routeCoordinates.length - 1],
+              allCoords: routeCoordinates.slice(0, 5)
+            })}
+
             {/* Route shadow for better visibility */}
             <Polyline
               positions={routeCoordinates}
-              color="#000000"
-              weight={12}
-              opacity={0.3}
+              pathOptions={{
+                color: "#000000",
+                weight: 12,
+                opacity: 0.3
+              }}
             />
+
             {/* Main route line */}
             <Polyline
               positions={routeCoordinates}
-              color="#2563eb"
-              weight={8}
-              opacity={1.0}
-              dashArray="0"
+              pathOptions={{
+                color: "#ff0000",
+                weight: 8,
+                opacity: 1.0
+              }}
             />
-            {/* Debug: Log when polyline renders */}
-            {console.log('🛣️ Polyline rendered with', routeCoordinates.length, 'points')}
+
+            {console.log('✅ Polyline components rendered')}
+          </>
+        )}
+
+        {/* Debug: Show when route should render but coordinates are empty */}
+        {showRoute && routeCoordinates.length === 0 && route && (
+          <>
+            {console.log('❌ showRoute=true but no coordinates:', {
+              showRoute,
+              route: route,
+              originalCoordinates: route.coordinates?.length,
+              filteredCoordinates: routeCoordinates.length
+            })}
           </>
         )}
 

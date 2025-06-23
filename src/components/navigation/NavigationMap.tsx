@@ -319,22 +319,28 @@ export default function NavigationMap({
         {/* Route polyline */}
         {routeCoordinates.length > 0 && (
           <>
+            {console.log('🧭 NavigationMap rendering route with', routeCoordinates.length, 'points')}
+
             {/* Route shadow for better visibility */}
             <Polyline
               positions={routeCoordinates}
-              color="#000000"
-              weight={12}
-              opacity={0.3}
+              pathOptions={{
+                color: "#000000",
+                weight: 12,
+                opacity: 0.3
+              }}
             />
+
             {/* Main route line */}
             <Polyline
               positions={routeCoordinates}
-              color="#dc2626"
-              weight={8}
-              opacity={1.0}
-              dashArray="0"
-              lineCap="round"
-              lineJoin="round"
+              pathOptions={{
+                color: "#dc2626",
+                weight: 8,
+                opacity: 1.0,
+                lineCap: "round",
+                lineJoin: "round"
+              }}
             />
           </>
         )}

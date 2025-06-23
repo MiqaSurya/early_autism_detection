@@ -25,11 +25,12 @@ const Marker = dynamic(
 
 export default function TestPolylinePage() {
   const [showRoute, setShowRoute] = useState(true)
+  const [isClient, setIsClient] = useState(false)
 
   // Simple test coordinates - KL to Mid Valley
   const startPoint: [number, number] = [3.1390, 101.6869] // [lat, lon] for Leaflet
   const endPoint: [number, number] = [3.0738, 101.7072]   // [lat, lon] for Leaflet
-  
+
   // Simple straight line route for testing
   const testRoute: [number, number][] = [
     [3.1390, 101.6869], // Start - KL
@@ -55,6 +56,10 @@ export default function TestPolylinePage() {
   ]
 
   const mapCenter: [number, number] = [3.1064, 101.6970] // Center between start and end
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -95,7 +100,7 @@ export default function TestPolylinePage() {
       <Card className="p-4">
         <h3 className="font-semibold mb-4">Map with Test Route</h3>
         <div className="h-96 w-full">
-          {typeof window !== 'undefined' && (
+          {isClient && (
             <MapContainer
               center={mapCenter}
               zoom={13}
@@ -110,29 +115,35 @@ export default function TestPolylinePage() {
 
               {/* Start Marker */}
               <Marker position={startPoint} />
-              
+
               {/* End Marker */}
               <Marker position={endPoint} />
 
               {/* Test Route - Simple */}
               {showRoute && (
-                <Polyline
-                  positions={testRoute}
-                  color="red"
-                  weight={8}
-                  opacity={1.0}
-                />
+                <>
+                  <Polyline
+                    positions={testRoute}
+                    color="red"
+                    weight={10}
+                    opacity={1.0}
+                  />
+                  {console.log('🔴 Red polyline should render with positions:', testRoute)}
+                </>
               )}
 
               {/* Test Route - Zigzag (different color) */}
               {showRoute && (
-                <Polyline
-                  positions={zigzagRoute}
-                  color="blue"
-                  weight={6}
-                  opacity={0.7}
-                  dashArray="10, 5"
-                />
+                <>
+                  <Polyline
+                    positions={zigzagRoute}
+                    color="blue"
+                    weight={8}
+                    opacity={1.0}
+                    dashArray="10, 5"
+                  />
+                  {console.log('🔵 Blue polyline should render with positions:', zigzagRoute)}
+                </>
               )}
             </MapContainer>
           )}
