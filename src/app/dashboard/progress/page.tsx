@@ -71,39 +71,74 @@ export default function ProgressPage() {
     setDeleteLoading(childId)
 
     try {
-      // Use direct Supabase deletion since constraints are now fixed with CASCADE
-      const { error } = await supabase
+      // Try manual deletion in correct order to bypass constraints
+      console.log(`Starting manual deletion for child: ${childName}`)
+
+      // Step 1: Get all assessments for this child
+      const { data: assessments } = await supabase
+        .from('assessments')
+        .select('id')
+        .eq('child_id', childId)
+
+      const assessmentIds = assessments?.map(a => a.id) || []
+      console.log(`Found ${assessmentIds.length} assessments to delete`)
+
+      // Step 2: Delete responses first (they reference assessments)
+      if (assessmentIds.length > 0) {
+        const { error: responsesError } = await supabase
+          .from('responses')
+          .delete()
+          .in('assessment_id', assessmentIds)
+
+        if (responsesError) {
+          console.log('Responses deletion error (might not exist):', responsesError)
+        } else {
+          console.log('Successfully deleted responses')
+        }
+      }
+
+      // Step 3: Delete assessments (they reference children)
+      const { error: assessmentsError } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('child_id', childId)
+
+      if (assessmentsError) {
+        console.error('Failed to delete assessments:', assessmentsError)
+        throw new Error(`Cannot delete assessments: ${assessmentsError.message}`)
+      } else {
+        console.log('Successfully deleted assessments')
+      }
+
+      // Step 4: Delete other child-related data (ignore errors if tables don't exist)
+      const childTables = ['milestones', 'progress_notes', 'interventions', 'assessment_comparisons', 'development_photos']
+
+      for (const tableName of childTables) {
+        try {
+          await supabase.from(tableName).delete().eq('child_id', childId)
+          console.log(`Deleted from ${tableName}`)
+        } catch (e) {
+          console.log(`Table ${tableName} might not exist, skipping`)
+        }
+      }
+
+      // Step 5: Finally delete the child profile
+      const { error: childError } = await supabase
         .from('children')
         .delete()
         .eq('id', childId)
 
-      if (error) {
-        console.error('Supabase deletion error:', error)
-
-        // If direct deletion fails, try the API endpoint as fallback
-        const response = await fetch(`/api/children/${childId}/force-delete`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          throw new Error(result.error || `Database error: ${error.message}`)
-        }
-
-        toast({
-          title: 'Profile Deleted',
-          description: result.message || `${childName}'s profile has been permanently deleted.`
-        })
-      } else {
-        toast({
-          title: 'Profile Deleted',
-          description: `${childName}'s profile has been permanently deleted.`
-        })
+      if (childError) {
+        console.error('Failed to delete child:', childError)
+        throw new Error(`Cannot delete child profile: ${childError.message}`)
       }
+
+      console.log('Successfully deleted child profile')
+
+      toast({
+        title: 'Profile Deleted',
+        description: `${childName}'s profile has been permanently deleted.`
+      })
 
       // Refresh the children list
       await fetchChildren()
@@ -121,7 +156,7 @@ export default function ProgressPage() {
       toast({
         variant: 'destructive',
         title: 'Deletion Failed',
-        description: `${errorMessage}. Please run the database constraint fix script in Supabase SQL Editor.`
+        description: `${errorMessage}. The database constraints need to be fixed. Please contact support or run the constraint fix script.`
       })
     } finally {
       setDeleteLoading(null)
