@@ -223,6 +223,18 @@ export default function NavigationMap({
     .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
     .map(coord => [coord[1], coord[0]] as [number, number]) || []
 
+  // Debug route coordinates
+  useEffect(() => {
+    if (route) {
+      console.log('🧭 NavigationMap route data:', {
+        originalCoordinates: route.coordinates?.slice(0, 3),
+        convertedCoordinates: routeCoordinates.slice(0, 3),
+        totalPoints: route.coordinates?.length,
+        summary: route.summary
+      })
+    }
+  }, [route, routeCoordinates])
+
   // Safe map center with fallback
   const safeMapCenter: [number, number] = isValidCoordinate(userLocation)
     ? userLocation

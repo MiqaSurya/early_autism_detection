@@ -159,6 +159,19 @@ export default function GeoapifyMap({
     .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
     .map(coord => [coord[1], coord[0]] as [number, number]) || []
 
+  // Debug route coordinates
+  useEffect(() => {
+    if (route) {
+      console.log('🗺️ GeoapifyMap route data:', {
+        originalCoordinates: route.coordinates?.slice(0, 3),
+        convertedCoordinates: routeCoordinates.slice(0, 3),
+        totalPoints: route.coordinates?.length,
+        showRoute,
+        summary: route.summary
+      })
+    }
+  }, [route, routeCoordinates, showRoute])
+
   return (
     <div className={className}>
       <MapContainer
@@ -177,13 +190,24 @@ export default function GeoapifyMap({
 
         {/* Route polyline */}
         {showRoute && routeCoordinates.length > 0 && (
-          <Polyline
-            positions={routeCoordinates}
-            color="#3b82f6"
-            weight={6}
-            opacity={0.8}
-            dashArray="10, 5"
-          />
+          <>
+            <Polyline
+              positions={routeCoordinates}
+              color="#3b82f6"
+              weight={8}
+              opacity={1.0}
+              dashArray="0"
+            />
+            {/* Debug: Log when polyline renders */}
+            {console.log('🛣️ Polyline rendered with', routeCoordinates.length, 'points')}
+          </>
+        )}
+
+        {/* Debug: Show when route should render but doesn't */}
+        {showRoute && routeCoordinates.length === 0 && route && (
+          <>
+            {console.log('❌ Route data exists but no valid coordinates:', route)}
+          </>
         )}
 
         {/* User location marker */}
