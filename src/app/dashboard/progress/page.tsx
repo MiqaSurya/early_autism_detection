@@ -8,6 +8,7 @@ import { AssessmentHistory } from '@/components/progress/assessment-history'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { Plus, Users, UserPlus, Trash2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -24,6 +25,11 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean
+    childId: string
+    childName: string
+  }>({ isOpen: false, childId: '', childName: '' })
 
   const supabase = createClientComponentClient()
   const { toast } = useToast()
@@ -52,13 +58,16 @@ export default function ProgressPage() {
     }
   }
 
-  const deleteChild = async (childId: string, childName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${childName}'s profile?\n\nThis will permanently delete:\n• All assessment history\n• All progress notes\n• All milestones\n• All intervention records\n\nThis action cannot be undone.`
-    )
+  const openDeleteDialog = (childId: string, childName: string) => {
+    setDeleteDialog({ isOpen: true, childId, childName })
+  }
 
-    if (!confirmed) return
+  const closeDeleteDialog = () => {
+    setDeleteDialog({ isOpen: false, childId: '', childName: '' })
+  }
 
+  const confirmDeleteChild = async () => {
+    const { childId, childName } = deleteDialog
     setDeleteLoading(childId)
 
     try {
@@ -81,6 +90,8 @@ export default function ProgressPage() {
       if (selectedChildId === childId) {
         setSelectedChildId('')
       }
+
+      closeDeleteDialog()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete child profile'
       toast({
@@ -243,7 +254,7 @@ export default function ProgressPage() {
                   </div>
 
                   <button
-                    onClick={() => deleteChild(child.id, child.name)}
+                    onClick={() => openDeleteDialog(child.id, child.name)}
                     disabled={deleteLoading === child.id}
                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                     title={`Delete ${child.name}'s profile`}
@@ -286,7 +297,29 @@ export default function ProgressPage() {
         <AssessmentHistory childId={selectedChildId} />
       )}
 
-      {/* No modal needed - using separate page */}
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={confirmDeleteChild}
+        title={`Delete ${deleteDialog.childName}'s Profile?`}
+        description={`This will permanently delete ${deleteDialog.childName}'s profile and all associated data. This action cannot be undone.`}
+        confirmText="Delete Profile"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteLoading === deleteDialog.childId}
+      >
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+          <h4 className="font-medium text-red-800 mb-2">The following data will be permanently deleted:</h4>
+          <ul className="text-sm text-red-700 space-y-1">
+            <li>• All assessment history and scores</li>
+            <li>• All progress notes and observations</li>
+            <li>• All developmental milestones</li>
+            <li>• All intervention records</li>
+            <li>• All saved progress data</li>
+          </ul>
+        </div>
+      </ConfirmationDialog>
     </div>
   )
 }
