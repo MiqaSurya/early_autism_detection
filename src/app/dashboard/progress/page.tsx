@@ -71,16 +71,23 @@ export default function ProgressPage() {
     setDeleteLoading(childId)
 
     try {
-      const { error } = await supabase
-        .from('children')
-        .delete()
-        .eq('id', childId)
+      // Use the API endpoint for reliable deletion with proper cascade handling
+      const response = await fetch(`/api/children/${childId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (error) throw error
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete child profile')
+      }
 
       toast({
         title: 'Profile Deleted',
-        description: `${childName}'s profile has been permanently deleted.`
+        description: result.message || `${childName}'s profile has been permanently deleted.`
       })
 
       // Refresh the children list
@@ -93,11 +100,12 @@ export default function ProgressPage() {
 
       closeDeleteDialog()
     } catch (err) {
+      console.error('Delete error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Failed to delete child profile'
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: errorMessage
+        description: `${errorMessage}. Please try again or contact support if the issue persists.`
       })
     } finally {
       setDeleteLoading(null)
