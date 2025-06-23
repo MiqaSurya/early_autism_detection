@@ -59,59 +59,93 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     // Manual deletion in dependency order
     console.log(`Manual deletion for child: ${child.name} (${child.id})`)
 
-    // Get all assessments for this child
+    // Get all assessments for this child first
     const { data: assessments } = await supabase
       .from('assessments')
       .select('id')
       .eq('child_id', id)
 
     const assessmentIds = assessments?.map(a => a.id) || []
+    console.log(`Found ${assessmentIds.length} assessments to delete`)
 
-    // Delete in reverse dependency order
-    const deletionSteps = [
-      // 1. Delete responses (reference assessments)
-      { table: 'responses', condition: { assessment_id: assessmentIds }, useIn: true },
-      // 2. Delete assessment history (reference assessments)
-      { table: 'assessment_history', condition: { assessment_id: assessmentIds }, useIn: true },
-      // 3. Delete assessment comparisons (reference child)
-      { table: 'assessment_comparisons', condition: { child_id: id } },
-      // 4. Delete development photos (reference child)
-      { table: 'development_photos', condition: { child_id: id } },
-      // 5. Delete interventions (reference child)
-      { table: 'interventions', condition: { child_id: id } },
-      // 6. Delete progress notes (reference child)
-      { table: 'progress_notes', condition: { child_id: id } },
-      // 7. Delete milestones (reference child)
-      { table: 'milestones', condition: { child_id: id } },
-      // 8. Delete assessments (reference child)
-      { table: 'assessments', condition: { child_id: id } },
+    // Step 1: Delete responses first (they reference assessments)
+    if (assessmentIds.length > 0) {
+      try {
+        const { error: responsesError } = await supabase
+          .from('responses')
+          .delete()
+          .in('assessment_id', assessmentIds)
+
+        if (responsesError && !responsesError.message.includes('does not exist')) {
+          console.error('Error deleting responses:', responsesError)
+        } else {
+          console.log('Successfully deleted responses')
+        }
+      } catch (e) {
+        console.log('Responses table might not exist, continuing...')
+      }
+    }
+
+    // Step 2: Delete assessment history
+    if (assessmentIds.length > 0) {
+      try {
+        const { error: historyError } = await supabase
+          .from('assessment_history')
+          .delete()
+          .in('assessment_id', assessmentIds)
+
+        if (historyError && !historyError.message.includes('does not exist')) {
+          console.error('Error deleting assessment history:', historyError)
+        } else {
+          console.log('Successfully deleted assessment history')
+        }
+      } catch (e) {
+        console.log('Assessment history table might not exist, continuing...')
+      }
+    }
+
+    // Step 3: Delete other child-related data
+    const childTables = [
+      'assessment_comparisons',
+      'development_photos',
+      'interventions',
+      'progress_notes',
+      'milestones'
     ]
 
-    for (const step of deletionSteps) {
+    for (const tableName of childTables) {
       try {
-        let query = supabase.from(step.table).delete()
-
-        if (step.useIn && Array.isArray(Object.values(step.condition)[0])) {
-          const [key, values] = Object.entries(step.condition)[0]
-          if (values.length > 0) {
-            query = query.in(key, values)
-          } else {
-            continue // Skip if no values to delete
-          }
-        } else {
-          const [key, value] = Object.entries(step.condition)[0]
-          query = query.eq(key, value)
-        }
-
-        const { error } = await query
+        const { error } = await supabase
+          .from(tableName)
+          .delete()
+          .eq('child_id', id)
 
         if (error && !error.message.includes('does not exist')) {
-          console.error(`Error deleting from ${step.table}:`, error)
+          console.error(`Error deleting from ${tableName}:`, error)
+        } else {
+          console.log(`Successfully deleted from ${tableName}`)
         }
-      } catch (stepError) {
-        console.error(`Error in deletion step for ${step.table}:`, stepError)
-        // Continue with other deletions
+      } catch (e) {
+        console.log(`Table ${tableName} might not exist, continuing...`)
       }
+    }
+
+    // Step 4: Delete assessments
+    try {
+      const { error: assessmentsError } = await supabase
+        .from('assessments')
+        .delete()
+        .eq('child_id', id)
+
+      if (assessmentsError) {
+        console.error('Error deleting assessments:', assessmentsError)
+        throw new Error(`Failed to delete assessments: ${assessmentsError.message}`)
+      } else {
+        console.log('Successfully deleted assessments')
+      }
+    } catch (e) {
+      console.error('Critical error deleting assessments:', e)
+      throw e
     }
 
     // Finally delete the child profile
