@@ -29,6 +29,17 @@ export interface NavigationResponse {
 }
 
 /**
+ * Validate coordinates
+ */
+function isValidCoordinates(coord: { lat: number; lon: number }): boolean {
+  return typeof coord.lat === 'number' &&
+         typeof coord.lon === 'number' &&
+         coord.lat >= -90 && coord.lat <= 90 &&
+         coord.lon >= -180 && coord.lon <= 180 &&
+         !isNaN(coord.lat) && !isNaN(coord.lon)
+}
+
+/**
  * Get turn-by-turn directions using Geoapify Routing API
  */
 export async function getDirections(
@@ -40,8 +51,18 @@ export async function getDirections(
     throw new Error('Geoapify API key is not configured')
   }
 
+  // Validate input coordinates
+  if (!isValidCoordinates(from)) {
+    throw new Error(`Invalid 'from' coordinates: ${JSON.stringify(from)}`)
+  }
+  if (!isValidCoordinates(to)) {
+    throw new Error(`Invalid 'to' coordinates: ${JSON.stringify(to)}`)
+  }
+
   try {
     const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lon}|${to.lat},${to.lon}&mode=${mode}&apiKey=${GEOAPIFY_API_KEY}`
+
+    console.log('Navigation request:', { from, to, mode, url: url.replace(GEOAPIFY_API_KEY, 'API_KEY') })
     
     const response = await fetch(url)
     

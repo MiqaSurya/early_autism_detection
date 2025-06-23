@@ -83,11 +83,11 @@ const createDestinationIcon = () => {
 }
 
 // Component to handle map updates and following user
-function MapController({ 
-  userLocation, 
-  destination, 
-  route, 
-  followUser = true 
+function MapController({
+  userLocation,
+  destination,
+  route,
+  followUser = true
 }: {
   userLocation: [number, number]
   destination: [number, number]
@@ -95,25 +95,53 @@ function MapController({
   followUser?: boolean
 }) {
   const map = useMap()
-  
+
   useEffect(() => {
-    if (followUser) {
-      // Center map on user location with smooth animation
-      map.setView(userLocation, 16, { animate: true, duration: 0.5 })
+    // Validate coordinates before setting view
+    if (followUser && userLocation && userLocation.length === 2) {
+      const [lat, lon] = userLocation
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        map.setView(userLocation, 16, { animate: true, duration: 0.5 })
+      } else {
+        console.warn('Invalid user location coordinates:', userLocation)
+      }
     }
   }, [map, userLocation, followUser])
-  
+
   useEffect(() => {
     // Fit map to show route when route is loaded
     if (route && route.coordinates.length > 0) {
-      const bounds = L.latLngBounds(
-        route.coordinates.map(coord => [coord[1], coord[0]] as [number, number])
-      )
-      map.fitBounds(bounds, { padding: [20, 20] })
+      try {
+        const validCoords = route.coordinates.filter(coord =>
+          coord.length === 2 &&
+          coord[1] >= -90 && coord[1] <= 90 &&
+          coord[0] >= -180 && coord[0] <= 180
+        )
+
+        if (validCoords.length > 0) {
+          const bounds = L.latLngBounds(
+            validCoords.map(coord => [coord[1], coord[0]] as [number, number])
+          )
+          map.fitBounds(bounds, { padding: [20, 20] })
+        }
+      } catch (error) {
+        console.warn('Error fitting route bounds:', error)
+      }
     }
   }, [map, route])
-  
+
   return null
+}
+
+// Validate coordinates helper
+function isValidCoordinate(coord: [number, number]): boolean {
+  return coord &&
+         coord.length === 2 &&
+         typeof coord[0] === 'number' &&
+         typeof coord[1] === 'number' &&
+         coord[0] >= -90 && coord[0] <= 90 &&
+         coord[1] >= -180 && coord[1] <= 180 &&
+         !isNaN(coord[0]) && !isNaN(coord[1])
 }
 
 export default function NavigationMap({
@@ -128,6 +156,19 @@ export default function NavigationMap({
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const watchIdRef = useRef<number | null>(null)
+
+  // Validate input coordinates
+  useEffect(() => {
+    if (!isValidCoordinate(userLocation)) {
+      setMapError(`Invalid user location: ${JSON.stringify(userLocation)}`)
+      return
+    }
+    if (!isValidCoordinate(destination)) {
+      setMapError(`Invalid destination: ${JSON.stringify(destination)}`)
+      return
+    }
+    setMapError(null)
+  }, [userLocation, destination])
 
   // Watch user location for real-time updates
   useEffect(() => {
@@ -158,8 +199,15 @@ export default function NavigationMap({
     }
   }, [onLocationUpdate])
 
-  // Convert route coordinates for Leaflet (swap lon/lat)
-  const routeCoordinates = route?.coordinates.map(coord => [coord[1], coord[0]] as [number, number]) || []
+  // Convert route coordinates for Leaflet (swap lon/lat) with validation
+  const routeCoordinates = route?.coordinates
+    .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
+    .map(coord => [coord[1], coord[0]] as [number, number]) || []
+
+  // Safe map center with fallback
+  const safeMapCenter: [number, number] = isValidCoordinate(userLocation)
+    ? userLocation
+    : [40.7589, -73.9851] // NYC fallback
 
   // Handle map loading
   useEffect(() => {
@@ -176,6 +224,12 @@ export default function NavigationMap({
         <div className="text-center p-4">
           <div className="text-red-600 mb-2">⚠️ Map Error</div>
           <div className="text-sm text-gray-600">{mapError}</div>
+          <button
+            onClick={() => setMapError(null)}
+            className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded"
+          >
+            Retry
+          </button>
         </div>
       </div>
     )
@@ -193,7 +247,7 @@ export default function NavigationMap({
       )}
 
       <MapContainer
-        center={userLocation}
+        center={safeMapCenter}
         zoom={16}
         style={{ height: '100%', width: '100%' }}
         className="navigation-map"

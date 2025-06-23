@@ -57,6 +57,19 @@ export default function FullNavigationScreen({
       const userPos: [number, number] = [location.lat, location.lon]
       setUserLocation(userPos)
 
+      console.log('Navigation initialization:', {
+        userLocation: location,
+        destination: { lat: destination.latitude, lon: destination.longitude },
+        destinationName: destination.name
+      })
+
+      // Validate destination coordinates
+      if (!destination.latitude || !destination.longitude ||
+          destination.latitude < -90 || destination.latitude > 90 ||
+          destination.longitude < -180 || destination.longitude > 180) {
+        throw new Error(`Invalid destination coordinates: ${destination.latitude}, ${destination.longitude}`)
+      }
+
       // Calculate route
       const calculatedRoute = await getDirections(
         { lat: location.lat, lon: location.lon },
