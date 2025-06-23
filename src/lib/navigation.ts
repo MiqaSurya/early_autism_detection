@@ -60,6 +60,7 @@ export async function getDirections(
   }
 
   try {
+    // Using your exact routing API pattern
     const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lon}|${to.lat},${to.lon}&mode=${mode}&apiKey=${GEOAPIFY_API_KEY}`
 
     console.log('Navigation request:', { from, to, mode, url: url.replace(GEOAPIFY_API_KEY, 'API_KEY') })
@@ -78,6 +79,10 @@ export async function getDirections(
 
     const route = data.features[0]
     const properties = route.properties
+
+    // Your exact result access pattern
+    const coordinates = route.geometry?.coordinates
+    console.log("Route:", coordinates) // Array of [lon, lat] points
     
     // Extract route steps
     const steps: RouteStep[] = properties.legs?.[0]?.steps?.map((step: any) => ({
