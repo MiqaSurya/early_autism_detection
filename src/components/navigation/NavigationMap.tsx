@@ -2,20 +2,25 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { NavigationRoute } from '@/lib/navigation'
-import dynamic from 'next/dynamic'
-
-// Dynamic imports to prevent SSR issues
-const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false })
-const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false })
-const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false })
-const Polyline = dynamic(() => import('react-leaflet').then(mod => mod.Polyline), { ssr: false })
-const useMap = dynamic(() => import('react-leaflet').then(mod => mod.useMap), { ssr: false })
 
 // Leaflet setup (only on client side)
 let L: any = null
+let MapContainer: any = null
+let TileLayer: any = null
+let Marker: any = null
+let Polyline: any = null
+let useMap: any = null
+
 if (typeof window !== 'undefined') {
   L = require('leaflet')
   require('leaflet/dist/leaflet.css')
+
+  const ReactLeaflet = require('react-leaflet')
+  MapContainer = ReactLeaflet.MapContainer
+  TileLayer = ReactLeaflet.TileLayer
+  Marker = ReactLeaflet.Marker
+  Polyline = ReactLeaflet.Polyline
+  useMap = ReactLeaflet.useMap
 
   // Fix for default markers in React Leaflet
   delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -244,6 +249,19 @@ export default function NavigationMap({
           >
             Retry
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render on server side
+  if (typeof window === 'undefined' || !MapContainer) {
+    return (
+      <div className={`${className} bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center`}>
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-lg font-medium text-blue-900 mb-2">Loading Map</div>
+          <div className="text-sm text-blue-700">Preparing navigation...</div>
         </div>
       </div>
     )

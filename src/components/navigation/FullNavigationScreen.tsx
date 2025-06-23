@@ -5,6 +5,7 @@ import { getDirections, NavigationRoute, getCurrentStep, isOffRoute } from '@/li
 import { getCurrentLocation } from '@/lib/geoapify'
 import { AutismCenter } from '@/types/location'
 import TurnByTurnNavigation from './TurnByTurnNavigation'
+import NavigationMap from './NavigationMap'
 import SSRSafeNavigationMap from './SSRSafeNavigationMap'
 import NavigationErrorBoundary from './NavigationErrorBoundary'
 import { Card } from '@/components/ui/card'
@@ -210,7 +211,7 @@ export default function FullNavigationScreen({
         )}
 
         {/* Navigation Map */}
-        <SSRSafeNavigationMap
+        <NavigationMap
           userLocation={userLocation}
           destination={[destination.latitude, destination.longitude]}
           route={route}
@@ -255,7 +256,7 @@ export default function FullNavigationScreen({
 
       {/* Route Preview Map */}
       <div className="flex-1">
-        <SSRSafeNavigationMap
+        <NavigationMap
           userLocation={userLocation}
           destination={[destination.latitude, destination.longitude]}
           route={route}

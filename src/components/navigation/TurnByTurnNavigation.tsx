@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { X, Volume2, VolumeX, Navigation, Phone, MapPin } from 'lucide-react'
 import { NavigationRoute, RouteStep, getManeuverIcon, formatDistance, formatDuration, getEstimatedArrival, getCurrentStep, getVoiceInstruction } from '@/lib/navigation'
+import NavigationMap from './NavigationMap'
 import SSRSafeNavigationMap from './SSRSafeNavigationMap'
 
 interface TurnByTurnNavigationProps {
@@ -33,6 +34,7 @@ export default function TurnByTurnNavigation({
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [hasSpoken, setHasSpoken] = useState(false)
+  const [useRealMap, setUseRealMap] = useState(true)
 
   // Get current step based on user location
   useEffect(() => {
@@ -176,14 +178,34 @@ export default function TurnByTurnNavigation({
 
       {/* Map Area */}
       <div className="flex-1 relative">
-        <SSRSafeNavigationMap
-          userLocation={userLocation}
-          destination={[destination.latitude, destination.longitude]}
-          route={route}
-          currentStepIndex={currentStepIndex}
-          onLocationUpdate={onLocationUpdate}
-          className="absolute inset-0"
-        />
+        {useRealMap ? (
+          <NavigationMap
+            userLocation={userLocation}
+            destination={[destination.latitude, destination.longitude]}
+            route={route}
+            currentStepIndex={currentStepIndex}
+            onLocationUpdate={onLocationUpdate}
+            className="absolute inset-0"
+          />
+        ) : (
+          <SSRSafeNavigationMap
+            userLocation={userLocation}
+            destination={[destination.latitude, destination.longitude]}
+            route={route}
+            currentStepIndex={currentStepIndex}
+            onLocationUpdate={onLocationUpdate}
+            className="absolute inset-0"
+          />
+        )}
+
+        {/* Map toggle button */}
+        <button
+          onClick={() => setUseRealMap(!useRealMap)}
+          className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg text-sm font-medium border"
+          title={useRealMap ? 'Switch to simple view' : 'Switch to map view'}
+        >
+          {useRealMap ? '📱 Simple' : '🗺️ Map'}
+        </button>
       </div>
 
       {/* Bottom Controls */}
