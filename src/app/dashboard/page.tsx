@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { ServiceCard } from '@/components/dashboard/service-card'
 import { ClipboardList, MessageCircle, MapPin, LogOut } from 'lucide-react'
 import { signOut } from '@/lib/supabase'
+import EmergencyNearestCenter from '@/components/dashboard/EmergencyNearestCenter'
 
 export default function DashboardPage() {
   const handleLogout = async () => {
@@ -79,7 +80,15 @@ export default function DashboardPage() {
           </motion.div>
         </motion.div>
 
-        <motion.div 
+        {/* Emergency Nearest Center */}
+        <motion.div
+          className="mb-8"
+          variants={itemVariants}
+        >
+          <EmergencyNearestCenter />
+        </motion.div>
+
+        <motion.div
           className="text-center"
           variants={itemVariants}
         >

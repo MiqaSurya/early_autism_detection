@@ -7,9 +7,11 @@ import { MapPin, Phone, Globe, Mail, Star, Navigation, Filter, Bookmark, Bookmar
 import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { useSavedLocations } from '@/hooks/use-saved-locations'
 import { AutismCenter, LocationType } from '@/types/location'
-import { calculateHaversineDistance, getCurrentLocation } from '@/lib/geoapify'
+import { calculateHaversineDistance, getCurrentLocation, findNearestCenter, sortCentersByDistance } from '@/lib/geoapify'
 import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
+import NearestCenterCard from './NearestCenterCard'
+import QuickNearestButton from './QuickNearestButton'
 
 // Dynamic import for Geoapify map component
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
@@ -41,6 +43,7 @@ export default function GeoapifyLocationFinder() {
   const [locationError, setLocationError] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [showSavedLocations, setShowSavedLocations] = useState(false)
+  const [showNearestCenter, setShowNearestCenter] = useState(true)
 
   // Use autism centers hook
   const {
@@ -141,13 +144,10 @@ export default function GeoapifyLocationFinder() {
     )
   }
 
-  // Calculate distances for centers
-  const centersWithDistance = centers.map(center => ({
-    ...center,
-    distance: userLocation 
-      ? calculateHaversineDistance(userLocation[0], userLocation[1], center.latitude, center.longitude)
-      : undefined
-  })).sort((a, b) => (a.distance || 0) - (b.distance || 0))
+  // Calculate distances for centers and sort by distance
+  const centersWithDistance = userLocation
+    ? sortCentersByDistance({ lat: userLocation[0], lon: userLocation[1] }, centers)
+    : centers.map(center => ({ ...center, distance: undefined }))
 
   return (
     <div className="space-y-6">
@@ -189,12 +189,38 @@ export default function GeoapifyLocationFinder() {
               <Bookmark className="h-4 w-4" />
               Saved ({savedLocations.length})
             </Button>
+
+            <Button
+              variant={showNearestCenter ? "default" : "outline"}
+              onClick={() => setShowNearestCenter(!showNearestCenter)}
+              className="flex items-center gap-2"
+            >
+              🎯 Nearest Center
+            </Button>
           </div>
         </div>
 
-        <div className="text-sm text-gray-600">
-          {showSavedLocations ? `${savedLocations.length} saved locations` : `${centersWithDistance.length} centers found`}
-          {userLocation && !showSavedLocations && ` within ${radiusFilter}km`}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-gray-600">
+            {showSavedLocations
+              ? `${savedLocations.length} saved locations`
+              : showNearestCenter
+                ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
+                : `${centersWithDistance.length} centers found`}
+            {userLocation && !showSavedLocations && !showNearestCenter && ` within ${radiusFilter}km`}
+          </div>
+
+          {/* Quick Nearest Center Button */}
+          {!showSavedLocations && centersWithDistance.length > 0 && (
+            <QuickNearestButton
+              centers={centersWithDistance}
+              onNearestFound={(center, distance) => {
+                setSelectedCenter(center)
+                setShowNearestCenter(true)
+              }}
+              className="w-full sm:w-auto"
+            />
+          )}
         </div>
       </div>
 
@@ -242,6 +268,17 @@ export default function GeoapifyLocationFinder() {
         </div>
       )}
 
+      {/* Nearest Center Card */}
+      {showNearestCenter && !showSavedLocations && centersWithDistance.length > 0 && (
+        <NearestCenterCard
+          centers={centersWithDistance}
+          onCenterSelect={setSelectedCenter}
+          onSaveCenter={handleSaveCenter}
+          isSaved={isSaved}
+          className="mb-6"
+        />
+      )}
+
       {/* Error Display */}
       {(error || locationError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -269,7 +306,7 @@ export default function GeoapifyLocationFinder() {
       </div>
 
       {/* Centers List */}
-      {!showSavedLocations && centersWithDistance.length > 0 && (
+      {!showSavedLocations && !showNearestCenter && centersWithDistance.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {centersWithDistance.map((center) => (
             <div key={center.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">

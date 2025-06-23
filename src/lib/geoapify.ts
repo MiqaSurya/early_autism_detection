@@ -243,3 +243,79 @@ export function getCurrentLocation(): Promise<{ lat: number; lon: number }> {
     )
   })
 }
+
+/**
+ * Find the nearest autism center to a given location
+ */
+export function findNearestCenter<T extends { latitude: number; longitude: number }>(
+  userLocation: { lat: number; lon: number },
+  centers: T[]
+): T | null {
+  if (!centers.length) return null
+
+  let nearestCenter = centers[0]
+  let shortestDistance = calculateHaversineDistance(
+    userLocation.lat,
+    userLocation.lon,
+    nearestCenter.latitude,
+    nearestCenter.longitude
+  )
+
+  for (let i = 1; i < centers.length; i++) {
+    const distance = calculateHaversineDistance(
+      userLocation.lat,
+      userLocation.lon,
+      centers[i].latitude,
+      centers[i].longitude
+    )
+
+    if (distance < shortestDistance) {
+      shortestDistance = distance
+      nearestCenter = centers[i]
+    }
+  }
+
+  return nearestCenter
+}
+
+/**
+ * Sort centers by distance from user location
+ */
+export function sortCentersByDistance<T extends { latitude: number; longitude: number }>(
+  userLocation: { lat: number; lon: number },
+  centers: T[]
+): (T & { distance: number })[] {
+  return centers
+    .map(center => ({
+      ...center,
+      distance: calculateHaversineDistance(
+        userLocation.lat,
+        userLocation.lon,
+        center.latitude,
+        center.longitude
+      )
+    }))
+    .sort((a, b) => a.distance - b.distance)
+}
+
+/**
+ * Filter centers within a specific radius
+ */
+export function filterCentersWithinRadius<T extends { latitude: number; longitude: number }>(
+  userLocation: { lat: number; lon: number },
+  centers: T[],
+  radiusKm: number
+): (T & { distance: number })[] {
+  return centers
+    .map(center => ({
+      ...center,
+      distance: calculateHaversineDistance(
+        userLocation.lat,
+        userLocation.lon,
+        center.latitude,
+        center.longitude
+      )
+    }))
+    .filter(center => center.distance <= radiusKm)
+    .sort((a, b) => a.distance - b.distance)
+}
