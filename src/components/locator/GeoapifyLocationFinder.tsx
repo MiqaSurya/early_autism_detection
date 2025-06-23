@@ -8,6 +8,7 @@ import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { useSavedLocations } from '@/hooks/use-saved-locations'
 import { AutismCenter, LocationType } from '@/types/location'
 import { calculateHaversineDistance, getCurrentLocation, findNearestCenter, sortCentersByDistance } from '@/lib/geoapify'
+import { searchHealthcarePOI, searchAutismRelatedPOI, POIPlace, formatDistance } from '@/lib/poi'
 import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
 import NearestCenterCard from './NearestCenterCard'
@@ -45,6 +46,9 @@ export default function GeoapifyLocationFinder() {
   const [showFilters, setShowFilters] = useState(false)
   const [showSavedLocations, setShowSavedLocations] = useState(false)
   const [showNearestCenter, setShowNearestCenter] = useState(true)
+  const [showPOIPlaces, setShowPOIPlaces] = useState(false)
+  const [poiPlaces, setPOIPlaces] = useState<POIPlace[]>([])
+  const [poiLoading, setPOILoading] = useState(false)
   const [navigationCenter, setNavigationCenter] = useState<AutismCenter | null>(null)
 
   // Use autism centers hook
@@ -140,6 +144,29 @@ export default function GeoapifyLocationFinder() {
     setNavigationCenter(null)
   }
 
+  // Search for POI places using your exact code pattern
+  const handleSearchPOI = async () => {
+    if (!userLocation) {
+      setLocationError('Please set your location first')
+      return
+    }
+
+    setPOILoading(true)
+    try {
+      // Use your exact POI search pattern
+      const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 20)
+      setPOIPlaces(places)
+      setShowPOIPlaces(true)
+      setShowNearestCenter(false)
+      setShowSavedLocations(false)
+    } catch (error) {
+      console.error('POI search failed:', error)
+      setLocationError('Failed to search for nearby places')
+    } finally {
+      setPOILoading(false)
+    }
+  }
+
   // Check if a center is already saved
   const isSaved = (center: AutismCenter): boolean => {
     return savedLocations.some(saved =>
@@ -197,10 +224,29 @@ export default function GeoapifyLocationFinder() {
 
             <Button
               variant={showNearestCenter ? "default" : "outline"}
-              onClick={() => setShowNearestCenter(!showNearestCenter)}
+              onClick={() => {
+                setShowNearestCenter(!showNearestCenter)
+                setShowPOIPlaces(false)
+                setShowSavedLocations(false)
+              }}
               className="flex items-center gap-2"
             >
               🎯 Nearest Center
+            </Button>
+
+            <Button
+              variant={showPOIPlaces ? "default" : "outline"}
+              onClick={() => {
+                if (showPOIPlaces) {
+                  setShowPOIPlaces(false)
+                } else {
+                  handleSearchPOI()
+                }
+              }}
+              disabled={poiLoading}
+              className="flex items-center gap-2"
+            >
+              🏥 {poiLoading ? 'Searching...' : 'Nearby Places'}
             </Button>
           </div>
         </div>
@@ -209,10 +255,12 @@ export default function GeoapifyLocationFinder() {
           <div className="text-sm text-gray-600">
             {showSavedLocations
               ? `${savedLocations.length} saved locations`
-              : showNearestCenter
-                ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
-                : `${centersWithDistance.length} centers found`}
-            {userLocation && !showSavedLocations && !showNearestCenter && ` within ${radiusFilter}km`}
+              : showPOIPlaces
+                ? `${poiPlaces.length} nearby places found`
+                : showNearestCenter
+                  ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
+                  : `${centersWithDistance.length} centers found`}
+            {userLocation && !showSavedLocations && !showNearestCenter && !showPOIPlaces && ` within ${radiusFilter}km`}
           </div>
 
           {/* Quick Nearest Center Button */}
@@ -458,6 +506,125 @@ export default function GeoapifyLocationFinder() {
                     >
                       <Navigation className="h-3 w-3" />
                       Navigate
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* POI Places */}
+      {showPOIPlaces && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold">Nearby Healthcare & Support Places</h2>
+          <p className="text-sm text-gray-600">
+            Found using Point of Interest search - includes hospitals, clinics, psychology centers, schools, and community facilities
+          </p>
+
+          {poiPlaces.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-4">🏥</div>
+              <p>No nearby places found.</p>
+              <p className="text-sm">Try increasing the search radius or searching from a different location.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {poiPlaces.map((place) => (
+                <div key={place.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow border-green-200">
+                  <div className="mb-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-lg font-semibold">{place.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block px-2 py-1 text-xs rounded bg-green-500 text-white">
+                          {place.category.split('.').pop()?.replace('_', ' ') || 'POI'}
+                        </span>
+                      </div>
+                    </div>
+                    {place.distance && (
+                      <p className="text-sm text-green-600 font-medium">
+                        {formatDistance(place.distance)} away
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-0.5 text-gray-500" />
+                      <p className="text-sm text-gray-600">{place.formatted}</p>
+                    </div>
+
+                    {place.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-gray-500" />
+                        <a href={`tel:${place.phone}`} className="text-sm text-blue-600 hover:underline">
+                          {place.phone}
+                        </a>
+                      </div>
+                    )}
+
+                    {place.website && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-gray-500" />
+                        <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                          Visit Website
+                        </a>
+                      </div>
+                    )}
+
+                    {place.rating && (
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <p className="text-sm text-gray-600">{place.rating}/5</p>
+                      </div>
+                    )}
+
+                    {place.opening_hours && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        {place.opening_hours}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleGetDirections({
+                        id: place.id,
+                        name: place.name,
+                        type: 'support', // Default type for POI places
+                        address: place.formatted,
+                        latitude: place.latitude,
+                        longitude: place.longitude,
+                        phone: place.phone,
+                        description: `${place.category} - Found via POI search`
+                      })}
+                      className="flex items-center gap-1"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      Navigate
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveCenter({
+                        id: place.id,
+                        name: place.name,
+                        type: 'support',
+                        address: place.formatted,
+                        latitude: place.latitude,
+                        longitude: place.longitude,
+                        phone: place.phone,
+                        description: `${place.category} - Found via POI search`,
+                        verified: false,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Save Place
                     </Button>
                   </div>
                 </div>
