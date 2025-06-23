@@ -9,6 +9,7 @@ import { useSavedLocations } from '@/hooks/use-saved-locations'
 import { AutismCenter, LocationType } from '@/types/location'
 import { calculateHaversineDistance, getCurrentLocation, findNearestCenter, sortCentersByDistance } from '@/lib/geoapify'
 import { searchHealthcarePOI, searchAutismRelatedPOI, POIPlace, formatDistance } from '@/lib/poi'
+import { calculateRoute } from '@/lib/routing'
 import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
 import NearestCenterCard from './NearestCenterCard'
@@ -50,6 +51,8 @@ export default function GeoapifyLocationFinder() {
   const [poiPlaces, setPOIPlaces] = useState<POIPlace[]>([])
   const [poiLoading, setPOILoading] = useState(false)
   const [navigationCenter, setNavigationCenter] = useState<AutismCenter | null>(null)
+  const [previewRoute, setPreviewRoute] = useState<any>(null)
+  const [selectedCenterForRoute, setSelectedCenterForRoute] = useState<AutismCenter | null>(null)
 
   // Use autism centers hook
   const {
@@ -142,6 +145,46 @@ export default function GeoapifyLocationFinder() {
 
   const handleCloseNavigation = () => {
     setNavigationCenter(null)
+    setPreviewRoute(null)
+    setSelectedCenterForRoute(null)
+  }
+
+  // Show route preview for a center
+  const handleShowRoute = async (center: AutismCenter) => {
+    if (!userLocation) {
+      setLocationError('Please set your location first to see route')
+      return
+    }
+
+    try {
+      console.log('🛣️ Calculating route preview to:', center.name)
+
+      const route = await calculateRoute(
+        { latitude: userLocation[0], longitude: userLocation[1] },
+        { latitude: center.latitude, longitude: center.longitude },
+        { mode: 'drive' }
+      )
+
+      if (route) {
+        console.log('✅ Route calculated for preview:', route.summary)
+        setPreviewRoute(route)
+        setSelectedCenterForRoute(center)
+        setShowNearestCenter(false)
+        setShowPOIPlaces(false)
+        setShowSavedLocations(false)
+      } else {
+        setLocationError('Could not calculate route to this center')
+      }
+    } catch (error) {
+      console.error('❌ Route calculation failed:', error)
+      setLocationError('Failed to calculate route')
+    }
+  }
+
+  // Clear route preview
+  const handleClearRoute = () => {
+    setPreviewRoute(null)
+    setSelectedCenterForRoute(null)
   }
 
   // Search for POI places using your exact code pattern
@@ -248,19 +291,31 @@ export default function GeoapifyLocationFinder() {
             >
               🏥 {poiLoading ? 'Searching...' : 'Nearby Places'}
             </Button>
+
+            {previewRoute && (
+              <Button
+                variant="secondary"
+                onClick={handleClearRoute}
+                className="flex items-center gap-2"
+              >
+                🛣️ Clear Route
+              </Button>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-sm text-gray-600">
-            {showSavedLocations
-              ? `${savedLocations.length} saved locations`
-              : showPOIPlaces
-                ? `${poiPlaces.length} nearby places found`
-                : showNearestCenter
-                  ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
-                  : `${centersWithDistance.length} centers found`}
-            {userLocation && !showSavedLocations && !showNearestCenter && !showPOIPlaces && ` within ${radiusFilter}km`}
+            {previewRoute && selectedCenterForRoute
+              ? `Route to ${selectedCenterForRoute.name} - ${previewRoute.summary}`
+              : showSavedLocations
+                ? `${savedLocations.length} saved locations`
+                : showPOIPlaces
+                  ? `${poiPlaces.length} nearby places found`
+                  : showNearestCenter
+                    ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
+                    : `${centersWithDistance.length} centers found`}
+            {userLocation && !showSavedLocations && !showNearestCenter && !showPOIPlaces && !previewRoute && ` within ${radiusFilter}km`}
           </div>
 
           {/* Quick Nearest Center Button */}
@@ -349,6 +404,11 @@ export default function GeoapifyLocationFinder() {
           centers={centersWithDistance}
           userLocation={userLocation || undefined}
           onCenterSelect={(center) => setSelectedCenter(center as AutismCenter)}
+          route={previewRoute ? {
+            coordinates: previewRoute.coordinates,
+            summary: previewRoute.summary
+          } : undefined}
+          showRoute={!!previewRoute}
           className="h-full w-full"
           zoom={12}
         />
@@ -411,13 +471,22 @@ export default function GeoapifyLocationFinder() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => handleShowRoute(center)}
+                  className="flex items-center gap-1"
+                >
+                  🛣️ Route
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleGetDirections(center)}
                   className="flex items-center gap-1"
                 >
                   <Navigation className="h-3 w-3" />
                   Navigate
                 </Button>
-                
+
                 <Button
                   size="sm"
                   className={`${isSaved(center) ? 'bg-green-600 hover:bg-green-700' : ''}`}
@@ -489,6 +558,27 @@ export default function GeoapifyLocationFinder() {
                   </div>
 
                   <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleShowRoute({
+                        id: location.id,
+                        name: location.name,
+                        type: location.type,
+                        address: location.address,
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        phone: location.phone,
+                        description: location.notes,
+                        verified: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })}
+                      className="flex items-center gap-1"
+                    >
+                      🛣️ Route
+                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -591,6 +681,27 @@ export default function GeoapifyLocationFinder() {
                   </div>
 
                   <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleShowRoute({
+                        id: place.id,
+                        name: place.name,
+                        type: 'support', // Default type for POI places
+                        address: place.formatted,
+                        latitude: place.latitude,
+                        longitude: place.longitude,
+                        phone: place.phone,
+                        description: `${place.category} - Found via POI search`,
+                        verified: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                      })}
+                      className="flex items-center gap-1"
+                    >
+                      🛣️ Route
+                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"

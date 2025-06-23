@@ -191,9 +191,17 @@ export default function GeoapifyMap({
         {/* Route polyline */}
         {showRoute && routeCoordinates.length > 0 && (
           <>
+            {/* Route shadow for better visibility */}
             <Polyline
               positions={routeCoordinates}
-              color="#3b82f6"
+              color="#000000"
+              weight={12}
+              opacity={0.3}
+            />
+            {/* Main route line */}
+            <Polyline
+              positions={routeCoordinates}
+              color="#2563eb"
               weight={8}
               opacity={1.0}
               dashArray="0"
