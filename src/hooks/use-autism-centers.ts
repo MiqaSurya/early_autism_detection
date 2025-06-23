@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AutismCenter, LocationType } from '@/types/location'
 import { useToast } from '@/hooks/use-toast'
+import { geocodeAutismCenter } from '@/lib/geocoding'
 
 interface UseAutismCentersOptions {
   latitude?: number
@@ -64,48 +65,70 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
         console.log('Autism centers API not available, using mock data')
       }
 
-      // Fallback to mock data for testing
-      const mockCenters: AutismCenter[] = [
+      // Fallback to mock data for testing (Malaysia-focused)
+      const mockCentersData = [
         {
-          id: 'mock-1',
-          name: 'Sample Autism Diagnostic Center',
-          type: 'diagnostic',
-          address: '123 Main St, Sample City, CA 90210',
-          latitude: lat + 0.01,
-          longitude: lng + 0.01,
-          phone: '+1-555-0123',
-          description: 'Comprehensive autism diagnostic services',
-          verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          name: 'Early Autism Project Malaysia',
+          type: 'diagnostic' as const,
+          address: 'Universiti Malaya, Kuala Lumpur',
+          phone: '+60-3-7967-4422',
+          description: 'Comprehensive autism diagnostic and intervention services'
         },
         {
-          id: 'mock-2',
-          name: 'Sample Therapy Center',
-          type: 'therapy',
-          address: '456 Oak Ave, Sample City, CA 90210',
-          latitude: lat - 0.01,
-          longitude: lng - 0.01,
-          phone: '+1-555-0456',
-          description: 'Behavioral and speech therapy services',
-          verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          name: 'National Autism Society of Malaysia',
+          type: 'support' as const,
+          address: 'Petaling Jaya, Selangor',
+          phone: '+60-3-7877-3151',
+          description: 'Support services and advocacy for autism community'
         },
         {
-          id: 'mock-3',
-          name: 'Sample Support Group',
-          type: 'support',
-          address: '789 Pine St, Sample City, CA 90210',
-          latitude: lat + 0.005,
-          longitude: lng - 0.005,
-          phone: '+1-555-0789',
-          description: 'Family support and community resources',
-          verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          name: 'Kiwanis Down Syndrome Foundation',
+          type: 'therapy' as const,
+          address: 'Bangsar, Kuala Lumpur',
+          phone: '+60-3-2282-3033',
+          description: 'Therapy and educational services for special needs'
+        },
+        {
+          name: 'Beautiful Gate Foundation',
+          type: 'education' as const,
+          address: 'Cheras, Kuala Lumpur',
+          phone: '+60-3-9132-2922',
+          description: 'Educational programs for children with special needs'
         }
       ]
+
+      // Geocode the mock centers to get real coordinates
+      const mockCenters: AutismCenter[] = []
+
+      for (let i = 0; i < mockCentersData.length; i++) {
+        const centerData = mockCentersData[i]
+        let centerLat = lat + (Math.random() - 0.5) * 0.1 // Fallback coordinates
+        let centerLng = lng + (Math.random() - 0.5) * 0.1
+
+        try {
+          const geocoded = await geocodeAutismCenter(centerData.name, centerData.address)
+          if (geocoded) {
+            centerLat = geocoded.latitude
+            centerLng = geocoded.longitude
+          }
+        } catch (error) {
+          console.log(`Could not geocode ${centerData.name}, using fallback coordinates`)
+        }
+
+        mockCenters.push({
+          id: `mock-${i + 1}`,
+          name: centerData.name,
+          type: centerData.type,
+          address: centerData.address,
+          latitude: centerLat,
+          longitude: centerLng,
+          phone: centerData.phone,
+          description: centerData.description,
+          verified: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      }
 
       setCenters(mockCenters)
     } catch (err) {
