@@ -309,8 +309,11 @@ export default function NavigationMap({
           <Polyline
             positions={routeCoordinates}
             color="#3b82f6"
-            weight={6}
-            opacity={0.8}
+            weight={8}
+            opacity={0.9}
+            dashArray="0"
+            lineCap="round"
+            lineJoin="round"
           />
         )}
 

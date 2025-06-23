@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -34,6 +34,11 @@ interface GeoapifyMapProps {
   onCenterSelect?: (center: AutismCenter) => void
   className?: string
   zoom?: number
+  route?: {
+    coordinates: [number, number][] // [longitude, latitude] pairs from routing API
+    summary?: string
+  }
+  showRoute?: boolean
 }
 
 // Custom marker icons for different center types
@@ -112,12 +117,14 @@ function MapUpdater({ center, zoom }: { center: [number, number], zoom: number }
   return null
 }
 
-export default function GeoapifyMap({ 
-  centers, 
-  userLocation, 
-  onCenterSelect, 
+export default function GeoapifyMap({
+  centers,
+  userLocation,
+  onCenterSelect,
   className = "h-96 w-full",
-  zoom = 13 
+  zoom = 13,
+  route,
+  showRoute = true
 }: GeoapifyMapProps) {
   const [selectedCenter, setSelectedCenter] = useState<string | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>(
@@ -142,10 +149,15 @@ export default function GeoapifyMap({
 
   const formatDistance = (distance?: number) => {
     if (!distance) return ''
-    return distance < 1 
+    return distance < 1
       ? `${(distance * 1000).toFixed(0)}m away`
       : `${distance.toFixed(1)}km away`
   }
+
+  // Convert route coordinates for Leaflet (swap lon/lat to lat/lon)
+  const routeCoordinates = route?.coordinates
+    .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
+    .map(coord => [coord[1], coord[0]] as [number, number]) || []
 
   return (
     <div className={className}>
@@ -162,6 +174,17 @@ export default function GeoapifyMap({
         />
         
         <MapUpdater center={mapCenter} zoom={zoom} />
+
+        {/* Route polyline */}
+        {showRoute && routeCoordinates.length > 0 && (
+          <Polyline
+            positions={routeCoordinates}
+            color="#3b82f6"
+            weight={6}
+            opacity={0.8}
+            dashArray="10, 5"
+          />
+        )}
 
         {/* User location marker */}
         {userLocation && (
