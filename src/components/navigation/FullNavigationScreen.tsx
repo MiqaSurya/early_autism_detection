@@ -6,6 +6,7 @@ import { getCurrentLocation } from '@/lib/geoapify'
 import { AutismCenter } from '@/types/location'
 import TurnByTurnNavigation from './TurnByTurnNavigation'
 import NavigationMap from './NavigationMap'
+import NavigationErrorBoundary from './NavigationErrorBoundary'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertTriangle, Navigation, X } from 'lucide-react'
@@ -205,17 +206,22 @@ export default function FullNavigationScreen({
         />
 
         {/* Turn-by-turn overlay */}
-        <TurnByTurnNavigation
-          route={route}
-          userLocation={userLocation}
-          destination={{
-            name: destination.name,
-            address: destination.address,
-            phone: destination.phone
-          }}
-          onClose={() => setIsNavigating(false)}
-          onRecalculate={handleRecalculateRoute}
-        />
+        <NavigationErrorBoundary>
+          <TurnByTurnNavigation
+            route={route}
+            userLocation={userLocation}
+            destination={{
+              name: destination.name,
+              address: destination.address,
+              phone: destination.phone,
+              latitude: destination.latitude,
+              longitude: destination.longitude
+            }}
+            onClose={() => setIsNavigating(false)}
+            onRecalculate={handleRecalculateRoute}
+            onLocationUpdate={handleLocationUpdate}
+          />
+        </NavigationErrorBoundary>
       </div>
     )
   }

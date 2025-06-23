@@ -125,6 +125,8 @@ export default function NavigationMap({
   onLocationUpdate
 }: NavigationMapProps) {
   const [followUser, setFollowUser] = useState(true)
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
   const watchIdRef = useRef<number | null>(null)
 
   // Watch user location for real-time updates
@@ -159,8 +161,37 @@ export default function NavigationMap({
   // Convert route coordinates for Leaflet (swap lon/lat)
   const routeCoordinates = route?.coordinates.map(coord => [coord[1], coord[0]] as [number, number]) || []
 
+  // Handle map loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMapLoaded(true)
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (mapError) {
+    return (
+      <div className={`${className} bg-gray-100 flex items-center justify-center`}>
+        <div className="text-center p-4">
+          <div className="text-red-600 mb-2">⚠️ Map Error</div>
+          <div className="text-sm text-gray-600">{mapError}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={className}>
+      {!mapLoaded && (
+        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <div className="text-sm text-gray-600">Loading navigation map...</div>
+          </div>
+        </div>
+      )}
+
       <MapContainer
         center={userLocation}
         zoom={16}
@@ -168,11 +199,16 @@ export default function NavigationMap({
         className="navigation-map"
         zoomControl={false}
         attributionControl={false}
+        whenCreated={() => setMapLoaded(true)}
+        onError={(error) => setMapError('Failed to load map')}
       >
         {/* Geoapify tile layer */}
         <TileLayer
-          attribution='&copy; <a href="https://www.geoapify.com/">Geoapify</a>'
-          url={`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`}
+          attribution='&copy; <a href="https://www.geoapify.com/">Geoapify</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url={process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
+            ? `https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`
+            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          }
         />
         
         <MapController 
