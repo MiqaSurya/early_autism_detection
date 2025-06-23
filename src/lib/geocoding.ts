@@ -81,6 +81,8 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult[]> 
 
 /**
  * Reverse geocode coordinates to get address
+ * Based on your exact code pattern:
+ * fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${apiKey}`)
  */
 export async function reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
   if (!GEOAPIFY_API_KEY) {
@@ -93,24 +95,30 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
 
   try {
     console.log('Reverse geocoding coordinates:', { latitude, longitude })
-    
-    const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&apiKey=${GEOAPIFY_API_KEY}`
-    
+
+    // Your exact code pattern
+    const lat = latitude
+    const lon = longitude
+    const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`
+
     const response = await fetch(url)
-    
+
     if (!response.ok) {
       throw new Error(`Reverse geocoding failed: ${response.status} ${response.statusText}`)
     }
-    
+
     const result = await response.json()
-    
+
     if (!result.features || result.features.length === 0) {
       return null
     }
-    
+
     const feature = result.features[0]
     const properties = feature.properties
-    
+
+    // Log the exact result like your code
+    console.log("Alamat:", properties.formatted)
+
     const reverseResult: ReverseGeocodeResult = {
       address: properties.address_line1 || properties.formatted || 'Unknown address',
       formatted: properties.formatted || properties.address_line1 || 'Unknown address',
@@ -121,13 +129,39 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
       street: properties.street,
       housenumber: properties.housenumber
     }
-    
+
     console.log('Reverse geocoding result:', reverseResult)
     return reverseResult
-    
+
   } catch (error) {
     console.error('Reverse geocoding error:', error)
     throw error
+  }
+}
+
+/**
+ * Simple reverse geocoding that returns just the formatted address string
+ * Exactly like your code example
+ */
+export async function reverseGeocodeSimple(lat: number, lon: number): Promise<string | null> {
+  if (!GEOAPIFY_API_KEY) {
+    throw new Error('Geoapify API key is not configured')
+  }
+
+  try {
+    // Your exact code pattern
+    const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`)
+    const result = await response.json()
+
+    // Your exact result access
+    const alamat = result.features[0].properties.formatted
+    console.log("Alamat:", alamat)
+
+    return alamat
+
+  } catch (error) {
+    console.error('Simple reverse geocoding error:', error)
+    return null
   }
 }
 

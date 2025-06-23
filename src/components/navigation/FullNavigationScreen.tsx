@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getDirections, NavigationRoute, getCurrentStep, isOffRoute } from '@/lib/navigation'
 import { getCurrentLocation } from '@/lib/geoapify'
+import { reverseGeocodeSimple } from '@/lib/geocoding'
 import { AutismCenter } from '@/types/location'
 import TurnByTurnNavigation from './TurnByTurnNavigation'
 import NavigationMap from './NavigationMap'
@@ -22,6 +23,7 @@ export default function FullNavigationScreen({
   onClose
 }: FullNavigationScreenProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const [userAddress, setUserAddress] = useState<string>('')
   const [route, setRoute] = useState<NavigationRoute | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +59,17 @@ export default function FullNavigationScreen({
       const location = await getCurrentLocation()
       const userPos: [number, number] = [location.lat, location.lon]
       setUserLocation(userPos)
+
+      // Get user address using reverse geocoding (your code pattern)
+      try {
+        const address = await reverseGeocodeSimple(location.lat, location.lon)
+        if (address) {
+          setUserAddress(address)
+        }
+      } catch (error) {
+        console.log('Could not get address for user location')
+        setUserAddress(`${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}`)
+      }
 
       console.log('Navigation initialization:', {
         userLocation: location,
@@ -248,6 +261,9 @@ export default function FullNavigationScreen({
         <div>
           <h1 className="text-xl font-semibold">Route to {destination.name}</h1>
           <p className="text-gray-600 text-sm">{destination.address}</p>
+          {userAddress && (
+            <p className="text-blue-600 text-xs mt-1">From: {userAddress}</p>
+          )}
         </div>
         <Button onClick={onClose} variant="ghost" size="sm">
           <X className="h-5 w-5" />
