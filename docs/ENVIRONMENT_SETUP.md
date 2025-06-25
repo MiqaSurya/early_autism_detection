@@ -18,7 +18,7 @@ The Early Autism Detector requires several external services:
 | Service | Purpose | Required |
 |---------|---------|----------|
 | Supabase | Database & Authentication | ✅ Yes |
-| OpenAI/DeepSeek | AI Chat Assistant | ✅ Yes |
+| OpenAI | AI Chat Assistant | ❌ Optional |
 | Google Maps | Center Locator & Maps | ✅ Yes |
 | SendGrid | Email Notifications | ❌ Optional |
 
@@ -96,20 +96,7 @@ The Early Autism Detector requires several external services:
    - Set usage limits to control costs
    - Monitor usage in the dashboard
 
-### Option 2: DeepSeek API (Alternative)
 
-1. **Create DeepSeek Account**
-   - Sign up at [platform.deepseek.com](https://platform.deepseek.com)
-   - Complete verification process
-
-2. **Generate API Key**
-   - Navigate to API section
-   - Create new API key
-   - Copy the key for environment variables
-
-3. **API Configuration**
-   - **Base URL**: `https://api.deepseek.com/v1/chat/completions`
-   - **Model**: `deepseek-chat`
 
 ## Google Maps API
 
@@ -222,9 +209,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # OpenAI Configuration
 OPENAI_API_KEY=sk-...
 
-# DeepSeek Configuration (Alternative)
-DEEPSEEK_API_KEY=your-deepseek-api-key
-DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1/chat/completions
+
 
 # =============================================================================
 # GOOGLE MAPS CONFIGURATION

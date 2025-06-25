@@ -27,6 +27,8 @@ export function DashboardNav({ user }: DashboardNavProps) {
     { href: '/dashboard/chat', label: 'AI Chat', match: pathname === '/dashboard/chat' },
     { href: '/dashboard/locator', label: 'Find Centers', match: pathname === '/dashboard/locator' },
     { href: '/dashboard/saved-locations', label: 'Saved Locations', match: pathname === '/dashboard/saved-locations' },
+    { href: '/dashboard/navigation', label: 'Navigation', match: pathname === '/dashboard/navigation' },
+    { href: '/dashboard/turn-by-turn', label: 'Turn-by-Turn', match: pathname === '/dashboard/turn-by-turn' },
   ]
 
   return (

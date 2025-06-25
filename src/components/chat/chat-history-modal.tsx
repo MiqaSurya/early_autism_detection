@@ -2,110 +2,133 @@
 
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { X, MessageCircle, Calendar, Trash2 } from 'lucide-react'
 
-interface ChatMessage {
-  id: number | string
+interface Message {
   role: 'user' | 'assistant'
   content: string
-  timestamp: string
+  timestamp: Date
+  id?: number | string
 }
 
-interface Conversation {
-  date: string
-  messages: ChatMessage[]
+interface ChatHistoryItem {
+  id: number
+  question: string
+  answer: string
+  timestamp: string
+  created_at: string
 }
 
 interface ChatHistoryModalProps {
-  isOpen: boolean
   onClose: () => void
-  onSelectConversation: (messages: ChatMessage[]) => void
+  onLoadChat: (messages: Message[]) => void
 }
 
-export function ChatHistoryModal({ isOpen, onClose, onSelectConversation }: ChatHistoryModalProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(false)
+export function ChatHistoryModal({ onClose, onLoadChat }: ChatHistoryModalProps) {
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    if (isOpen) {
-      checkHistoryTableAndFetch()
-    }
-  }, [isOpen])
-  
-  const checkHistoryTableAndFetch = async () => {
-    setLoading(true)
-    setError(null)
-    
+    loadChatHistory()
+  }, [])
+
+  const loadChatHistory = async () => {
     try {
-      // Check if user is authenticated first
+      setLoading(true)
+      setError(null)
+
       const { data: { session } } = await supabase.auth.getSession()
       
       if (!session) {
-        setError('Please log in to view your chat history.')
-        setLoading(false)
+        setError('Please log in to view chat history')
         return
       }
-      
-      // Check if chat history table exists
-      const initResponse = await fetch('/api/chat/init-history', {
-        method: 'GET',
-        credentials: 'include'
-      })
-      
-      const initData = await initResponse.json()
-      console.log('Init response:', initData)
-      
-      if (initResponse.ok && initData.success) {
-        // Table exists, proceed to fetch history
-        fetchChatHistory()
-      } else if (initData.needsSetup) {
-        // Table doesn't exist
-        setError(`Chat history is not yet set up in the database. Details: ${initData.details || 'No details provided'}`)
-        setLoading(false)
-      } else {
-        // Other error
-        setError(`Unable to access chat history: ${initData.error || 'Unknown error'}. ${initData.details ? `Details: ${initData.details}` : ''}`)
-        setLoading(false)
+
+      const { data, error: fetchError } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (fetchError) {
+        console.error('Error fetching chat history:', fetchError)
+        setError('Failed to load chat history')
+        return
       }
+
+      setChatHistory(data || [])
     } catch (err) {
-      console.error('Error checking chat history table:', err)
-      setError('Failed to check chat history availability. Please try again.')
+      console.error('Error loading chat history:', err)
+      setError('Failed to load chat history')
+    } finally {
       setLoading(false)
     }
   }
 
-  const fetchChatHistory = async () => {
-    try {      
-      // Fetch chat history with credentials
-      const response = await fetch('/api/chat/history', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include' // Important for including cookies
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API error response:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch chat history')
+  const deleteChatItem = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('chat_history')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Error deleting chat item:', error)
+        return
       }
-      
-      const data = await response.json()
-      
-      if (!data.history) {
-        console.warn('No history data in response:', data)
-        setConversations([])
-      } else {
-        console.log(`Loaded ${data.history.length} conversation groups`)
-        setConversations(data.history)
-      }
+
+      // Remove from local state
+      setChatHistory(prev => prev.filter(item => item.id !== id))
     } catch (err) {
-      console.error('Error fetching chat history:', err)
-      setError('Failed to load chat history. Please try again.')
-    } finally {
-      setLoading(false)
+      console.error('Error deleting chat item:', err)
+    }
+  }
+
+  const loadChatConversation = (item: ChatHistoryItem) => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: item.question,
+        timestamp: new Date(item.timestamp || item.created_at),
+        id: `${item.id}-user`
+      },
+      {
+        role: 'assistant',
+        content: item.answer,
+        timestamp: new Date(item.timestamp || item.created_at),
+        id: `${item.id}-assistant`
+      }
+    ]
+    
+    onLoadChat(messages)
+  }
+
+  const clearAllHistory = async () => {
+    if (!confirm('Are you sure you want to delete all chat history? This cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) return
+
+      const { error } = await supabase
+        .from('chat_history')
+        .delete()
+        .eq('user_id', session.user.id)
+
+      if (error) {
+        console.error('Error clearing chat history:', error)
+        return
+      }
+
+      setChatHistory([])
+    } catch (err) {
+      console.error('Error clearing chat history:', err)
     }
   }
 
@@ -113,84 +136,114 @@ export function ChatHistoryModal({ isOpen, onClose, onSelectConversation }: Chat
     const date = new Date(dateString)
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
-  
-  const getConversationPreview = (messages: ChatMessage[]) => {
-    // Find the first user message to use as preview
-    const firstUserMessage = messages.find(msg => msg.role === 'user')
-    return firstUserMessage?.content || 'Conversation'
-  }
 
-  if (!isOpen) return null
+  const truncateText = (text: string, maxLength: number = 100) => {
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Chat History</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center gap-3">
+            <MessageCircle className="h-6 w-6 text-blue-600" />
+            <h2 className="text-xl font-semibold">Chat History</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {chatHistory.length > 0 && (
+              <button
+                onClick={clearAllHistory}
+                className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear All
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-4">
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <p className="text-gray-500 dark:text-gray-400">Loading chat history...</p>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading chat history...</span>
             </div>
           ) : error ? (
-            <div className="text-center text-red-500 dark:text-red-400 p-4">
-              {error}
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-2">⚠️ {error}</div>
+              <button
+                onClick={loadChatHistory}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
             </div>
-          ) : conversations.length === 0 ? (
-            <div className="text-center text-gray-500 dark:text-gray-400 p-4">
-              No chat history found.
+          ) : chatHistory.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>No chat history found.</p>
+              <p className="text-sm">Start a conversation to see your chat history here.</p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {conversations.map((conversation, index) => (
-                <div key={index} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                  <h3 className="font-medium text-gray-900 dark:text-white mb-2 px-2">
-                    {conversation.date}
-                  </h3>
-                  <ul className="space-y-2">
-                    <li 
-                      className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
-                      onClick={() => {
-                        onSelectConversation(conversation.messages)
-                        onClose()
-                      }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <p className="font-medium text-gray-900 dark:text-white truncate max-w-[80%]">
-                          {getConversationPreview(conversation.messages)}
-                        </p>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {conversation.messages.length / 2} messages
+            <div className="space-y-4">
+              {chatHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
+                  onClick={() => loadChatConversation(item)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-500">
+                          {formatDate(item.timestamp || item.created_at)}
                         </span>
                       </div>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                        Click to continue this conversation
-                      </p>
-                    </li>
-                  </ul>
+                      
+                      <div className="mb-2">
+                        <div className="text-sm font-medium text-gray-700 mb-1">Question:</div>
+                        <div className="text-sm text-gray-900">{truncateText(item.question)}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Answer:</div>
+                        <div className="text-sm text-gray-600">{truncateText(item.answer, 150)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteChatItem(item.id)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all text-red-600"
+                        title="Delete this chat"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-        
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={onClose}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            Close
-          </button>
+
+        {/* Footer */}
+        <div className="border-t p-4 bg-gray-50">
+          <p className="text-sm text-gray-600 text-center">
+            Click on any conversation to load it in the chat. Your chat history is private and secure.
+          </p>
         </div>
       </div>
     </div>

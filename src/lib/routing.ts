@@ -65,15 +65,18 @@ export async function calculateRoute(
     const params = new URLSearchParams({
       waypoints: `${start.latitude},${start.longitude}|${end.latitude},${end.longitude}`,
       mode: mode,
-      apiKey: GEOAPIFY_API_KEY
+      apiKey: GEOAPIFY_API_KEY,
+      // Request detailed geometry for road-following routes
+      details: 'instruction',
+      // Request full geometry (not simplified)
+      geometry: 'polyline',
+      // Ensure we get the most detailed route
+      format: 'geojson'
     })
 
     // Add optional parameters
     if (avoid.length > 0) {
       params.append('avoid', avoid.join(','))
-    }
-    if (details.length > 0) {
-      params.append('details', details.join(','))
     }
     if (units) {
       params.append('units', units)

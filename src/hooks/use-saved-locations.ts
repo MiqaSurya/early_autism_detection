@@ -106,31 +106,46 @@ export function useSavedLocations() {
   // Delete a saved location
   const deleteLocation = async (id: string) => {
     try {
-      const response = await fetch(`/api/saved-locations/${id}`, {
-        method: 'DELETE'
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete location')
+      // Try API first
+      try {
+        const response = await fetch(`/api/saved-locations/${id}`, {
+          method: 'DELETE'
+        })
+
+        if (response.ok) {
+          setSavedLocations(savedLocations.filter(location => location.id !== id))
+
+          toast({
+            title: 'Location removed',
+            description: 'Location has been removed from your favorites.',
+          })
+
+          return true
+        }
+      } catch (apiError) {
+        console.log('API not available, using localStorage fallback')
       }
-      
-      setSavedLocations(savedLocations.filter(location => location.id !== id))
-      
+
+      // Fallback to localStorage
+      const updatedLocations = savedLocations.filter(location => location.id !== id)
+      setSavedLocations(updatedLocations)
+      localStorage.setItem('saved-autism-centers', JSON.stringify(updatedLocations))
+
       toast({
-        title: 'Location deleted',
-        description: 'Location has been removed from your saved locations.',
+        title: 'Location removed',
+        description: 'Location has been removed from your favorites.',
       })
-      
+
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
-      
+
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to delete location. Please try again.',
+        description: 'Failed to remove location. Please try again.',
       })
-      
+
       return false
     }
   }

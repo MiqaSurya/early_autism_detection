@@ -326,20 +326,33 @@ export default function NavigationMap({
               positions={routeCoordinates}
               pathOptions={{
                 color: "#000000",
-                weight: 12,
-                opacity: 0.3
+                weight: 10,
+                opacity: 0.5
               }}
             />
 
-            {/* Main route line */}
+            {/* Main route line - Bright blue for navigation visibility */}
             <Polyline
               positions={routeCoordinates}
               pathOptions={{
-                color: "#dc2626",
-                weight: 8,
+                color: "#0066ff",
+                weight: 6,
                 opacity: 1.0,
                 lineCap: "round",
                 lineJoin: "round"
+              }}
+            />
+
+            {/* Route highlight for extra visibility during navigation */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 2,
+                opacity: 0.8,
+                lineCap: "round",
+                lineJoin: "round",
+                dashArray: "5, 10"
               }}
             />
           </>
@@ -386,12 +399,18 @@ export default function NavigationMap({
 
       {/* Route info overlay */}
       {route && (
-        <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+        <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border-l-4 border-blue-500">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{route.summary}</span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="font-medium">{route.summary}</span>
+            </div>
             <span className="text-gray-600">
               Step {currentStepIndex + 1} of {route.steps.length}
             </span>
+          </div>
+          <div className="text-xs text-blue-600 mt-1">
+            🛣️ Follow the blue route to your destination
           </div>
         </div>
       )}

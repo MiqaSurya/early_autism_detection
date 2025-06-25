@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { ChatHistoryModal } from './chat-history-modal'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -22,23 +24,22 @@ const suggestedQuestions = [
   "How to handle meltdowns and anxiety?"
 ]
 
-export function ChatInterface() {
+export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const supabase = createClientComponentClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || loading) return
+  const sendMessage = async (userMessage: string) => {
+    if (!userMessage.trim() || loading) return
 
-    const userMessage = input.trim()
-    setInput('')
     setLoading(true)
+    setInput('')
 
-    // Add user message to chat
-    setMessages(prev => [...prev, { role: 'user', content: userMessage, timestamp: new Date() }])
+    // Add user message
+    const newUserMessage: Message = { role: 'user', content: userMessage, timestamp: new Date() }
+    setMessages(prev => [...prev, newUserMessage])
 
     try {
       const response = await fetch('/api/chat', {
@@ -78,115 +79,136 @@ export function ChatInterface() {
     setInput(question)
   }
 
-  // Handle loading a previous conversation from history
-  const handleLoadConversation = (historyMessages: any[]) => {
-    if (!historyMessages || historyMessages.length === 0) return;
-    
-    // Convert history messages to the format used by the chat interface
-    const formattedMessages = historyMessages.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-      timestamp: new Date(msg.timestamp),
-      id: msg.id
-    }));
-    
-    // Set the messages state to the loaded conversation
-    setMessages(formattedMessages);
-    
-    // Scroll to the bottom of the chat after loading history
-    setTimeout(() => {
-      const chatContainer = document.querySelector('.chat-messages-container');
-      if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }
-    }, 100);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input)
+  }
+
+  const loadChatFromHistory = (chatMessages: Message[]) => {
+    setMessages(chatMessages)
+    setShowHistory(false)
   }
 
   return (
-    <div className="card h-[600px] flex flex-col bg-white shadow-lg rounded-lg relative">
-      {/* Chat History Modal */}
-      <ChatHistoryModal
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        onSelectConversation={handleLoadConversation}
-      />
-      <div className="flex justify-between items-center p-3 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Autism Information Chat</h2>
-        <button
-          onClick={() => setShowHistory(true)}
-          className="flex items-center gap-2 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
-          </svg>
-          History
-        </button>
+    <div className="flex flex-col h-full max-w-6xl mx-auto">
+      {/* Enhanced Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/30 px-8 py-6 shadow-lg">
+        {/* Back to Dashboard Button */}
+        <div className="mb-6">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-3 bg-white/60 backdrop-blur-sm px-6 py-3 rounded-2xl shadow-lg border border-white/30 text-blue-600 hover:text-blue-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span className="font-semibold">Back to Dashboard</span>
+          </Link>
+        </div>
+
+        {/* Header Content */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-transparent mb-2">
+              Autism Information Assistant
+            </h1>
+            <p className="text-gray-700 text-lg">Get expert answers about autism, development, and support strategies</p>
+          </div>
+          <button
+            onClick={() => setShowHistory(true)}
+            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 font-semibold"
+          >
+            Chat History
+          </button>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container">
-        {messages.length === 0 ? (
-          <div className="text-center text-neutral-600">
-            <p className="mb-4 text-lg font-medium">Welcome to the Autism Information Assistant! How can I help you learn about autism?</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {suggestedQuestions.map((question) => (
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center py-8">
+            <div className="text-6xl mb-4">🤖</div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Welcome to Autism Information Assistant</h2>
+            <p className="text-gray-600 mb-6">Ask me anything about autism, development, or support resources.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
+              {suggestedQuestions.map((question, index) => (
                 <button
-                  key={question}
+                  key={index}
                   onClick={() => handleSuggestedQuestion(question)}
-                  className="text-left p-3 text-sm bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-lg transition-colors"
+                  className="p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm"
                 >
                   {question}
                 </button>
               ))}
             </div>
           </div>
-        ) : (
-          messages.map((message, index) => (
+        )}
+
+        {messages.map((message, index) => (
+          <div
+            key={index}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
             <div
-              key={index}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                message.role === 'user'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-900'
+              }`}
             >
-              <div className="flex flex-col gap-1">
-                <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === 'user'
-                      ? 'bg-blue-500 dark:bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-                  {message.id && (
-                    <div className="text-xs opacity-70 mt-1 text-right">
-                      {typeof message.id === 'string' && message.id.includes('-response') ? 'Saved response' : 'From history'}
-                    </div>
-                  )}
+              <p className="whitespace-pre-wrap">{message.content}</p>
+              <p className={`text-xs mt-1 ${
+                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+              }`}>
+                {message.timestamp.toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {message.timestamp.toLocaleTimeString()}
-                </span>
+                <span className="text-sm">Thinking...</span>
               </div>
             </div>
-          ))
+          </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
-        <div className="flex gap-2">
+      {/* Input */}
+      <div className="border-t bg-white p-6">
+        <form onSubmit={handleSubmit} className="flex space-x-4">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question..."
-            className="flex-1 p-3 border rounded-lg"
+            placeholder="Ask a question about autism..."
+            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={loading}
           />
           <button
             type="submit"
-            disabled={loading}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors disabled:opacity-50"
+            disabled={loading || !input.trim()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Sending...' : 'Send'}
+            Send
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
+
+      {/* Chat History Modal */}
+      {showHistory && (
+        <ChatHistoryModal
+          onClose={() => setShowHistory(false)}
+          onLoadChat={loadChatFromHistory}
+        />
+      )}
     </div>
   )
 }

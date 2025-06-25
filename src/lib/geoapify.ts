@@ -216,32 +216,122 @@ export function formatAddress(place: GeoapifyPlace): string {
 }
 
 /**
- * Get current user location using browser geolocation
+ * Get current user location using browser geolocation with improved error handling
  */
-export function getCurrentLocation(): Promise<{ lat: number; lon: number }> {
+export function getCurrentLocation(options: {
+  timeout?: number
+  enableHighAccuracy?: boolean
+  maximumAge?: number
+  retries?: number
+} = {}): Promise<{ lat: number; lon: number }> {
+  const {
+    timeout = 20000, // Increased to 20 seconds
+    enableHighAccuracy = true,
+    maximumAge = 300000, // 5 minutes
+    retries = 2
+  } = options
+
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by this browser'))
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude
-        })
-      },
-      (error) => {
-        reject(error)
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000 // 5 minutes
-      }
-    )
+    let attemptCount = 0
+
+    const attemptLocation = () => {
+      attemptCount++
+      console.log(`🌍 Location attempt ${attemptCount}/${retries + 1}`)
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log('✅ Location obtained:', {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          })
+          resolve({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          })
+        },
+        (error) => {
+          console.error(`❌ Location attempt ${attemptCount} failed:`, error)
+
+          // If we have retries left and it's a timeout error, try again with less accuracy
+          if (attemptCount <= retries && error.code === 3) { // TIMEOUT
+            console.log('🔄 Retrying with lower accuracy...')
+            setTimeout(() => {
+              // Retry with lower accuracy and longer timeout
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  console.log('✅ Location obtained on retry:', {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                  })
+                  resolve({
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                  })
+                },
+                (retryError) => {
+                  console.error(`❌ Retry attempt failed:`, retryError)
+                  if (attemptCount < retries) {
+                    attemptLocation()
+                  } else {
+                    reject(createLocationError(retryError))
+                  }
+                },
+                {
+                  enableHighAccuracy: false, // Lower accuracy for retry
+                  timeout: timeout + 10000, // Extra 10 seconds
+                  maximumAge: maximumAge
+                }
+              )
+            }, 1000) // Wait 1 second before retry
+          } else {
+            reject(createLocationError(error))
+          }
+        },
+        {
+          enableHighAccuracy,
+          timeout,
+          maximumAge
+        }
+      )
+    }
+
+    attemptLocation()
   })
+}
+
+/**
+ * Create user-friendly error messages for location errors
+ */
+function createLocationError(error: GeolocationPositionError): Error {
+  let message: string
+
+  switch (error.code) {
+    case 1: // PERMISSION_DENIED
+      message = 'Location access denied. Please enable location services in your browser settings and try again.'
+      break
+    case 2: // POSITION_UNAVAILABLE
+      message = 'Location information is unavailable. Please check your internet connection and try again.'
+      break
+    case 3: // TIMEOUT
+      message = 'Location request timed out. This may happen indoors or in areas with poor GPS signal. Please try again or move to an area with better signal.'
+      break
+    default:
+      message = 'Unable to get your location. Please try again or enter your address manually.'
+  }
+
+  const customError = new Error(message)
+  // Preserve original error code for debugging
+  ;(customError as any).originalError = error
+  ;(customError as any).code = error.code
+
+  return customError
 }
 
 /**

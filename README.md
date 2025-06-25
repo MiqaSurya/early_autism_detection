@@ -113,7 +113,7 @@ A comprehensive web application for early autism screening using the M-CHAT-R (M
 
 ### Required Accounts
 - [Supabase](https://supabase.com) - Database and authentication
-- [OpenAI](https://platform.openai.com) or [DeepSeek](https://platform.deepseek.com) - AI chat
+- [DeepSeek](https://platform.deepseek.com) - AI chat assistant
 - [Google Cloud](https://console.cloud.google.com) - Maps API
 - [Vercel](https://vercel.com) - Deployment (optional)
 
@@ -145,10 +145,9 @@ npm run dev
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# AI API (choose one)
-OPENAI_API_KEY=your_openai_api_key
-# OR
+# DeepSeek API (for AI chat)
 DEEPSEEK_API_KEY=your_deepseek_api_key
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com
 
 # Google Maps
 NEXT_PUBLIC_GMAPS_KEY=your_google_maps_api_key

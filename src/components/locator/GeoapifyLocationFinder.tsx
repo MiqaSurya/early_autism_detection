@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MapPin, Phone, Globe, Mail, Star, Navigation, Filter, Bookmark, BookmarkCheck } from 'lucide-react'
@@ -8,13 +9,13 @@ import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { useSavedLocations } from '@/hooks/use-saved-locations'
 import { AutismCenter, LocationType } from '@/types/location'
 import { calculateHaversineDistance, getCurrentLocation, findNearestCenter, sortCentersByDistance } from '@/lib/geoapify'
-import { searchHealthcarePOI, searchAutismRelatedPOI, POIPlace, formatDistance } from '@/lib/poi'
+import { searchHealthcarePOI, searchAutismRelatedPOI, POIPlace, formatDistance, testGeoapifyAPI } from '@/lib/poi'
 import { calculateRoute } from '@/lib/routing'
+import { navigateToNavigationPage } from '@/lib/navigation-utils'
 import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
 import NearestCenterCard from './NearestCenterCard'
 import QuickNearestButton from './QuickNearestButton'
-import FullNavigationScreen from '../navigation/FullNavigationScreen'
 
 // Dynamic import for Geoapify map component
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
@@ -36,7 +37,8 @@ const TYPE_FILTERS: { value: LocationType | 'all'; label: string; color: string 
 ]
 
 export default function GeoapifyLocationFinder() {
-  const { savedLocations, saveLocation } = useSavedLocations()
+  const router = useRouter()
+  const { savedLocations, saveLocation, deleteLocation } = useSavedLocations()
   const [currentLocation, setCurrentLocation] = useState<[number, number]>([40.7589, -73.9851]) // Default to NYC
   const [selectedCenter, setSelectedCenter] = useState<AutismCenter | null>(null)
   const [typeFilter, setTypeFilter] = useState<LocationType | 'all'>('all')
@@ -46,11 +48,10 @@ export default function GeoapifyLocationFinder() {
   const [locationError, setLocationError] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [showSavedLocations, setShowSavedLocations] = useState(false)
-  const [showNearestCenter, setShowNearestCenter] = useState(true)
+  const [showNearestCenter, setShowNearestCenter] = useState(false) // Start with false, will be set to true when centers load
   const [showPOIPlaces, setShowPOIPlaces] = useState(false)
   const [poiPlaces, setPOIPlaces] = useState<POIPlace[]>([])
   const [poiLoading, setPOILoading] = useState(false)
-  const [navigationCenter, setNavigationCenter] = useState<AutismCenter | null>(null)
   const [previewRoute, setPreviewRoute] = useState<any>(null)
   const [selectedCenterForRoute, setSelectedCenterForRoute] = useState<AutismCenter | null>(null)
 
@@ -70,41 +71,108 @@ export default function GeoapifyLocationFinder() {
 
   // Get user location and fetch centers on mount
   useEffect(() => {
+    // Test API connectivity first
+    testGeoapifyAPI()
     handleFindNearby()
   }, [])
 
-  // Handle filter changes
+  // Handle filter changes - refetch centers when filters change
   useEffect(() => {
-    if (userLocation) {
-      fetchCenters({ 
-        latitude: userLocation[0], 
-        longitude: userLocation[1], 
-        radius: radiusFilter,
-        type: typeFilter === 'all' ? undefined : typeFilter
-      })
+    if (userLocation && !loading) {
+      const refetchWithFilters = async () => {
+        if (showPOIPlaces) {
+          // Re-search autism centers with new filters
+          setPOILoading(true)
+          try {
+            console.log('🔄 Re-searching autism centers with updated filters...')
+            const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 30)
+            console.log(`✅ Filter update found ${places.length} autism facilities`)
+            setPOIPlaces(places)
+          } catch (error) {
+            console.error('Autism center re-search failed:', error)
+            // Fallback to regular centers
+            await fetchCenters({
+              latitude: userLocation[0],
+              longitude: userLocation[1],
+              radius: radiusFilter,
+              type: typeFilter === 'all' ? undefined : typeFilter
+            })
+            setShowPOIPlaces(false)
+            setShowNearestCenter(false)
+          } finally {
+            setPOILoading(false)
+          }
+        } else {
+          // Regular centers search
+          await fetchCenters({
+            latitude: userLocation[0],
+            longitude: userLocation[1],
+            radius: radiusFilter,
+            type: typeFilter === 'all' ? undefined : typeFilter
+          })
+        }
+      }
+
+      refetchWithFilters()
     }
-  }, [typeFilter, radiusFilter, userLocation])
+  }, [radiusFilter, typeFilter])
 
   const handleFindNearby = async () => {
     setIsLocating(true)
     setLocationError(null)
 
+    let finalLat = 3.1390 // Default KL coordinates
+    let finalLon = 101.6869
+
     try {
+      // Try to get user's current location
       const location = await getCurrentLocation()
-      setUserLocation([location.lat, location.lon])
-      setCurrentLocation([location.lat, location.lon])
-      
-      // Fetch centers for this location
-      await fetchCenters({ 
-        latitude: location.lat, 
-        longitude: location.lon, 
+      finalLat = location.lat
+      finalLon = location.lon
+      console.log('✅ Got user location:', { lat: finalLat, lon: finalLon })
+    } catch (error) {
+      console.log('⚠️ Could not get user location, using KL default:', error)
+      setLocationError('Using Kuala Lumpur as default location. You can search for your address or click "Use My Location" to try again.')
+    }
+
+    // Set the location regardless of whether we got user location or default
+    setUserLocation([finalLat, finalLon])
+    setCurrentLocation([finalLat, finalLon])
+
+    // Always try to load regular autism centers first
+    console.log('🔍 Loading autism centers from database...')
+    try {
+      await fetchCenters({
+        latitude: finalLat,
+        longitude: finalLon,
         radius: radiusFilter,
         type: typeFilter === 'all' ? undefined : typeFilter
       })
-    } catch (error) {
-      console.error('Location error:', error)
-      setLocationError('Unable to get your location. Please search for an address instead.')
+      console.log('✅ Loaded autism centers from database')
+      // Show the full centers list by default
+      setShowNearestCenter(false)
+    } catch (centerError) {
+      console.error('❌ Failed to load centers from database:', centerError)
+    }
+
+    // Automatically search for all autism centers via POI API
+    setPOILoading(true)
+    try {
+      console.log('🔍 Automatically searching for all autism centers and related facilities...')
+      const places = await searchAutismRelatedPOI(finalLat, finalLon, radiusFilter * 1000, 30)
+      console.log(`✅ Automatically found ${places.length} autism-related facilities`)
+      if (places.length > 0) {
+        console.log(`📍 Autism facilities found: ${places.map(p => p.name).join(', ')}`)
+        setPOIPlaces(places)
+        setShowPOIPlaces(true)
+      } else {
+        console.log('ℹ️ No additional autism facilities found via automatic search')
+      }
+    } catch (poiError) {
+      console.log('⚠️ Automatic autism center search failed, using only database centers:', poiError)
+      // Don't set error here, just continue with database centers
     } finally {
+      setPOILoading(false)
       setIsLocating(false)
     }
   }
@@ -113,41 +181,80 @@ export default function GeoapifyLocationFinder() {
     setUserLocation([location.lat, location.lon])
     setCurrentLocation([location.lat, location.lon])
     setLocationError(null)
-    
-    // Fetch centers for this location
-    await fetchCenters({ 
-      latitude: location.lat, 
-      longitude: location.lon, 
-      radius: radiusFilter,
-      type: typeFilter === 'all' ? undefined : typeFilter
-    })
+
+    // Always try to load regular autism centers first
+    console.log('🔍 Loading autism centers from database for selected location...')
+    try {
+      await fetchCenters({
+        latitude: location.lat,
+        longitude: location.lon,
+        radius: radiusFilter,
+        type: typeFilter === 'all' ? undefined : typeFilter
+      })
+      console.log('✅ Loaded autism centers from database for selected location')
+      // Show the full centers list by default
+      setShowNearestCenter(false)
+    } catch (centerError) {
+      console.error('❌ Failed to load centers from database:', centerError)
+    }
+
+    // Automatically search for all autism centers at selected location
+    setPOILoading(true)
+    try {
+      console.log('🔍 Automatically searching for autism centers at selected location...')
+      const places = await searchAutismRelatedPOI(location.lat, location.lon, radiusFilter * 1000, 30)
+      console.log(`✅ Automatically found ${places.length} autism facilities at selected location`)
+      if (places.length > 0) {
+        console.log(`📍 Facilities at location: ${places.map(p => p.name).join(', ')}`)
+        setPOIPlaces(places)
+        setShowPOIPlaces(true)
+        // Keep showing nearest center as well
+      } else {
+        console.log('ℹ️ No autism facilities found at selected location')
+      }
+    } catch (poiError) {
+      console.log('⚠️ Automatic search failed for selected location, using only database centers:', poiError)
+      // Don't set error here, just continue with database centers
+    } finally {
+      setPOILoading(false)
+    }
   }
 
-  const handleSaveCenter = async (center: AutismCenter) => {
+  const handleToggleFavorite = async (center: AutismCenter) => {
     try {
-      await saveLocation({
-        name: center.name,
-        type: center.type,
-        address: center.address,
-        latitude: center.latitude,
-        longitude: center.longitude,
-        phone: center.phone,
-        notes: center.description
-      })
+      const savedLocation = savedLocations.find(saved =>
+        saved.latitude === center.latitude &&
+        saved.longitude === center.longitude &&
+        saved.name === center.name
+      )
+
+      if (savedLocation) {
+        // Remove from favorites
+        await deleteLocation(savedLocation.id)
+      } else {
+        // Add to favorites
+        await saveLocation({
+          name: center.name,
+          type: center.type,
+          address: center.address,
+          latitude: center.latitude,
+          longitude: center.longitude,
+          phone: center.phone,
+          notes: center.description
+        })
+      }
     } catch (error) {
-      console.error('Failed to save center:', error)
+      console.error('Error toggling favorite:', error)
     }
   }
 
   const handleGetDirections = (center: AutismCenter) => {
-    setNavigationCenter(center)
+    // Navigate to the navigation page instead of opening a modal
+    const navigationUrl = navigateToNavigationPage(center)
+    router.push(navigationUrl)
   }
 
-  const handleCloseNavigation = () => {
-    setNavigationCenter(null)
-    setPreviewRoute(null)
-    setSelectedCenterForRoute(null)
-  }
+
 
   // Show route preview for a center
   const handleShowRoute = async (center: AutismCenter) => {
@@ -187,7 +294,7 @@ export default function GeoapifyLocationFinder() {
     setSelectedCenterForRoute(null)
   }
 
-  // Search for POI places using your exact code pattern
+  // Enhanced search for autism centers
   const handleSearchPOI = async () => {
     if (!userLocation) {
       setLocationError('Please set your location first')
@@ -196,15 +303,17 @@ export default function GeoapifyLocationFinder() {
 
     setPOILoading(true)
     try {
-      // Use your exact POI search pattern
-      const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 20)
+      console.log('🔍 Manual search for autism centers triggered...')
+      // Use enhanced search with more comprehensive results
+      const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 30)
+      console.log(`✅ Manual search found ${places.length} autism facilities`)
       setPOIPlaces(places)
       setShowPOIPlaces(true)
       setShowNearestCenter(false)
       setShowSavedLocations(false)
     } catch (error) {
-      console.error('POI search failed:', error)
-      setLocationError('Failed to search for nearby places')
+      console.error('Enhanced autism center search failed:', error)
+      setLocationError('Failed to search for autism centers')
     } finally {
       setPOILoading(false)
     }
@@ -223,6 +332,44 @@ export default function GeoapifyLocationFinder() {
   const centersWithDistance = userLocation
     ? sortCentersByDistance({ lat: userLocation[0], lon: userLocation[1] }, centers)
     : centers.map(center => ({ ...center, distance: undefined }))
+
+  // Debug logging
+  console.log('🔍 Debug Info:', {
+    userLocation,
+    centersCount: centers.length,
+    centersWithDistanceCount: centersWithDistance.length,
+    poiPlacesCount: poiPlaces.length,
+    showPOIPlaces,
+    showNearestCenter,
+    showSavedLocations,
+    loading,
+    poiLoading,
+    isLocating
+  })
+
+  // Convert filtered POI places (autism-specific) to AutismCenter format
+  const poiAutismCenters: AutismCenter[] = poiPlaces.map(place => ({
+    id: place.id,
+    name: place.name,
+    type: 'therapy', // Most POI autism places are therapy/psychology centers
+    address: place.formatted,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    phone: place.phone,
+    description: `Psychology/Therapy Center - ${place.category}`,
+    verified: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    distance: place.distance ? place.distance / 1000 : undefined // Convert meters to km
+  }))
+
+  // Combine database autism centers with POI autism centers
+  const allAutismCenters = [...centersWithDistance, ...poiAutismCenters]
+
+  // Sort all autism centers by distance
+  const allCentersWithDistance = userLocation
+    ? sortCentersByDistance({ lat: userLocation[0], lon: userLocation[1] }, allAutismCenters)
+    : allAutismCenters
 
   return (
     <div className="space-y-6">
@@ -274,31 +421,18 @@ export default function GeoapifyLocationFinder() {
               }}
               className="flex items-center gap-2"
             >
-              🎯 Nearest Center
+              🎯 {showNearestCenter ? 'Show All Centers' : 'Show Nearest Only'}
             </Button>
 
-            <Button
-              variant={showPOIPlaces ? "default" : "outline"}
-              onClick={() => {
-                if (showPOIPlaces) {
-                  setShowPOIPlaces(false)
-                } else {
-                  handleSearchPOI()
-                }
-              }}
-              disabled={poiLoading}
-              className="flex items-center gap-2"
-            >
-              🏥 {poiLoading ? 'Searching...' : 'Nearby Places'}
-            </Button>
+
 
             {previewRoute && (
               <Button
                 variant="secondary"
                 onClick={handleClearRoute}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
               >
-                🛣️ Clear Route
+                ❌ Clear Blue Route
               </Button>
             )}
           </div>
@@ -306,22 +440,25 @@ export default function GeoapifyLocationFinder() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-sm text-gray-600">
-            {previewRoute && selectedCenterForRoute
-              ? `Route to ${selectedCenterForRoute.name} - ${previewRoute.summary}`
-              : showSavedLocations
-                ? `${savedLocations.length} saved locations`
-                : showPOIPlaces
-                  ? `${poiPlaces.length} nearby places found`
-                  : showNearestCenter
-                    ? `Showing nearest center${centersWithDistance.length > 1 ? ` (${centersWithDistance.length} total found)` : ''}`
-                    : `${centersWithDistance.length} centers found`}
+            {previewRoute && selectedCenterForRoute ? (
+              <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="text-blue-800 font-medium">
+                  🛣️ Blue route to {selectedCenterForRoute.name} - {previewRoute.summary}
+                </span>
+              </div>
+            ) : showSavedLocations
+              ? `${savedLocations.length} saved locations`
+              : showNearestCenter
+                ? `Showing nearest autism center${allCentersWithDistance.length > 1 ? ` (${allCentersWithDistance.length} total found)` : ''}`
+                : `${allCentersWithDistance.length} autism centers found automatically`}
             {userLocation && !showSavedLocations && !showNearestCenter && !showPOIPlaces && !previewRoute && ` within ${radiusFilter}km`}
           </div>
 
           {/* Quick Nearest Center Button */}
-          {!showSavedLocations && centersWithDistance.length > 0 && (
+          {!showSavedLocations && allCentersWithDistance.length > 0 && (
             <QuickNearestButton
-              centers={centersWithDistance}
+              centers={allCentersWithDistance}
               onNearestFound={(center, distance) => {
                 setSelectedCenter(center)
                 setShowNearestCenter(true)
@@ -378,11 +515,11 @@ export default function GeoapifyLocationFinder() {
       )}
 
       {/* Nearest Center Card */}
-      {showNearestCenter && !showSavedLocations && centersWithDistance.length > 0 && (
+      {showNearestCenter && !showSavedLocations && allCentersWithDistance.length > 0 && (
         <NearestCenterCard
-          centers={centersWithDistance}
+          centers={allCentersWithDistance}
           onCenterSelect={setSelectedCenter}
-          onSaveCenter={handleSaveCenter}
+          onSaveCenter={handleToggleFavorite}
           onNavigate={handleGetDirections}
           isSaved={isSaved}
           className="mb-6"
@@ -401,7 +538,7 @@ export default function GeoapifyLocationFinder() {
       {/* Map */}
       <div className="h-96 w-full rounded-lg overflow-hidden relative">
         <GeoapifyMap
-          centers={centersWithDistance}
+          centers={allCentersWithDistance}
           userLocation={userLocation || undefined}
           onCenterSelect={(center) => setSelectedCenter(center as AutismCenter)}
           route={previewRoute ? {
@@ -413,350 +550,370 @@ export default function GeoapifyLocationFinder() {
           zoom={12}
         />
 
-        {(isLocating || loading) && (
+        {(isLocating || loading || poiLoading) && (
           <div className="absolute top-4 right-4 bg-white px-3 py-2 rounded-lg shadow text-sm">
-            {isLocating ? 'Getting your location...' : 'Loading centers...'}
+            {isLocating ? 'Getting your location...' :
+             poiLoading ? 'Automatically finding autism centers...' :
+             'Loading centers...'}
           </div>
         )}
       </div>
 
-      {/* Centers List */}
-      {!showSavedLocations && !showNearestCenter && centersWithDistance.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {centersWithDistance.map((center) => (
-            <div key={center.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="mb-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold">{center.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-block px-2 py-1 text-xs rounded ${TYPE_FILTERS.find(f => f.value === center.type)?.color} text-white`}>
-                      {TYPE_FILTERS.find(f => f.value === center.type)?.label}
-                    </span>
-                    {isSaved(center) && <BookmarkCheck className="h-4 w-4 text-blue-500" />}
+      {/* All Autism Centers List */}
+      {!showSavedLocations && !showNearestCenter && allCentersWithDistance.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Autism Centers ({allCentersWithDistance.length})</h2>
+              <p className="text-sm text-gray-600">
+                Autism diagnostic centers, therapy centers, psychology centers, and support facilities
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            {allCentersWithDistance.map((center) => (
+            <div key={center.id} className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+              {/* Header */}
+              <div className="p-6 pb-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{center.name}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        center.type === 'diagnostic' ? 'bg-blue-100 text-blue-800' :
+                        center.type === 'therapy' ? 'bg-green-100 text-green-800' :
+                        center.type === 'support' ? 'bg-purple-100 text-purple-800' :
+                        'bg-orange-100 text-orange-800'
+                      }`}>
+                        {center.type.charAt(0).toUpperCase() + center.type.slice(1)}
+                      </span>
+                      {center.verified && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ Verified
+                        </span>
+                      )}
+                      {center.distance && (
+                        <span className="text-sm text-gray-500">
+                          📍 {center.distance.toFixed(1)} km
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`${isSaved(center) ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-300'}`}
+                    onClick={() => handleToggleFavorite(center)}
+                  >
+                    {isSaved(center) ? (
+                      <>
+                        <BookmarkCheck className="h-3 w-3 mr-1" />
+                        Remove
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="h-3 w-3 mr-1" />
+                        Save
+                      </>
+                    )}
+                  </Button>
                 </div>
-                {center.distance && (
-                  <p className="text-sm text-blue-600 font-medium">
-                    {center.distance.toFixed(1)} km away
-                  </p>
-                )}
               </div>
 
-              <div className="space-y-3 mb-4">
+              {/* Contact Information */}
+              <div className="px-6 space-y-3">
                 <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-0.5 text-gray-500" />
+                  <MapPin className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
                   <p className="text-sm text-gray-600">{center.address}</p>
                 </div>
 
                 {center.phone && (
                   <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <p className="text-sm text-gray-600">{center.phone}</p>
+                    <Phone className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <a href={`tel:${center.phone}`} className="text-sm text-blue-600 hover:underline">
+                      {center.phone}
+                    </a>
+                  </div>
+                )}
+
+                {center.website && (
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <a
+                      href={center.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      Visit Website
+                    </a>
+                  </div>
+                )}
+
+                {center.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <a href={`mailto:${center.email}`} className="text-sm text-blue-600 hover:underline">
+                      {center.email}
+                    </a>
                   </div>
                 )}
 
                 {center.rating && (
                   <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <p className="text-sm text-gray-600">{center.rating}/5</p>
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-600">{center.rating}/5 rating</span>
                   </div>
                 )}
-
-                {center.description && (
-                  <p className="text-sm text-gray-600">{center.description}</p>
-                )}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleShowRoute(center)}
-                  className="flex items-center gap-1"
-                >
-                  🛣️ Route
-                </Button>
+              {/* Description */}
+              {center.description && (
+                <div className="px-6">
+                  <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    {center.description}
+                  </p>
+                </div>
+              )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleGetDirections(center)}
-                  className="flex items-center gap-1"
-                >
-                  <Navigation className="h-3 w-3" />
-                  Navigate
-                </Button>
+              {/* Services */}
+              {center.services && center.services.length > 0 && (
+                <div className="px-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Services Offered:</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {center.services.map((service, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                      >
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                <Button
-                  size="sm"
-                  className={`${isSaved(center) ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                  onClick={() => handleSaveCenter(center)}
-                  disabled={isSaved(center)}
-                >
-                  {isSaved(center) ? (
-                    <>
-                      <BookmarkCheck className="h-3 w-3 mr-1" />
-                      Saved
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
+              {/* Age Groups */}
+              {center.age_groups && center.age_groups.length > 0 && (
+                <div className="px-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Age Groups Served:</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {center.age_groups.map((age, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800"
+                      >
+                        {age} years
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Insurance */}
+              {center.insurance_accepted && center.insurance_accepted.length > 0 && (
+                <div className="px-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Insurance Accepted:</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {center.insurance_accepted.map((insurance, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                      >
+                        {insurance}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="px-6 pb-6 pt-4 border-t border-gray-100">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShowRoute(center)}
+                    className="flex items-center gap-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    🔵 Show Route
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGetDirections(center)}
+                    className="flex items-center gap-1"
+                  >
+                    <Navigation className="h-3 w-3" />
+                    Navigate
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    className={`${isSaved(center) ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                    onClick={() => handleToggleFavorite(center)}
+                  >
+                    {isSaved(center) ? (
+                      <>
+                        <BookmarkCheck className="h-3 w-3 mr-1" />
+                        Remove from Favorites
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="h-3 w-3 mr-1" />
+                        Add to Favorites
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* Saved Locations */}
       {showSavedLocations && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Saved Locations</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Your Favorite Autism Centers ({savedLocations.length})</h2>
+              <p className="text-sm text-gray-600">
+                Your saved autism centers for quick access
+              </p>
+            </div>
+          </div>
           {savedLocations.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Bookmark className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No saved locations yet.</p>
-              <p className="text-sm">Click the "Save" button on any center to add it to your saved locations!</p>
+            <div className="text-center py-12 text-gray-500">
+              <Bookmark className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">No favorite centers yet</h3>
+              <p className="text-sm mb-4">Save autism centers to quickly access them later!</p>
+              <Button
+                onClick={() => setShowSavedLocations(false)}
+                variant="outline"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                Browse Autism Centers
+              </Button>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
               {savedLocations.map((location) => (
-                <div key={location.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow border-blue-200">
-                  <div className="mb-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold">{location.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${TYPE_FILTERS.find(f => f.value === location.type)?.color} text-white`}>
-                          {TYPE_FILTERS.find(f => f.value === location.type)?.label}
-                        </span>
-                        <BookmarkCheck className="h-4 w-4 text-blue-500" />
+                <div key={location.id} className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow border-green-200 overflow-hidden">
+                  {/* Header */}
+                  <div className="p-6 pb-4 bg-green-50">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{location.name}</h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            location.type === 'diagnostic' ? 'bg-blue-100 text-blue-800' :
+                            location.type === 'therapy' ? 'bg-green-100 text-green-800' :
+                            location.type === 'support' ? 'bg-purple-100 text-purple-800' :
+                            'bg-orange-100 text-orange-800'
+                          }`}>
+                            {location.type.charAt(0).toUpperCase() + location.type.slice(1)}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ⭐ Favorite
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Saved on {new Date(location.created_at).toLocaleDateString()}
+                        </p>
                       </div>
+                      <BookmarkCheck className="h-5 w-5 text-green-600" />
                     </div>
-                    <p className="text-xs text-gray-500">
-                      Saved on {new Date(location.created_at).toLocaleDateString()}
-                    </p>
                   </div>
 
-                  <div className="space-y-3 mb-4">
+                  {/* Contact Information */}
+                  <div className="px-6 space-y-3">
                     <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5 text-gray-500" />
+                      <MapPin className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
                       <p className="text-sm text-gray-600">{location.address}</p>
                     </div>
 
                     {location.phone && (
                       <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                        <p className="text-sm text-gray-600">{location.phone}</p>
+                        <Phone className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                        <a href={`tel:${location.phone}`} className="text-sm text-blue-600 hover:underline">
+                          {location.phone}
+                        </a>
                       </div>
                     )}
 
                     {location.notes && (
-                      <div className="bg-blue-50 p-2 rounded text-sm">
-                        <strong>Your notes:</strong> {location.notes}
+                      <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                        <h4 className="text-sm font-medium text-blue-900 mb-1">Your Notes:</h4>
+                        <p className="text-sm text-blue-800">{location.notes}</p>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleShowRoute({
-                        id: location.id,
-                        name: location.name,
-                        type: location.type,
-                        address: location.address,
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                        phone: location.phone,
-                        description: location.notes,
-                        verified: true,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })}
-                      className="flex items-center gap-1"
-                    >
-                      🛣️ Route
-                    </Button>
+                  {/* Action Buttons */}
+                  <div className="px-6 pb-6 pt-4 border-t border-gray-100">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShowRoute({
+                          id: location.id,
+                          name: location.name,
+                          type: location.type,
+                          address: location.address,
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                          phone: location.phone,
+                          description: location.notes,
+                          verified: true,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
+                        })}
+                        className="flex items-center gap-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                      >
+                        🔵 Show Route
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGetDirections({
-                        id: location.id,
-                        name: location.name,
-                        type: location.type,
-                        address: location.address,
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                        phone: location.phone,
-                        description: location.notes,
-                        verified: true,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })}
-                      className="flex items-center gap-1"
-                    >
-                      <Navigation className="h-3 w-3" />
-                      Navigate
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleGetDirections({
+                          id: location.id,
+                          name: location.name,
+                          type: location.type,
+                          address: location.address,
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                          phone: location.phone,
+                          description: location.notes,
+                          verified: true,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString()
+                        })}
+                        className="flex items-center gap-1"
+                      >
+                        <Navigation className="h-3 w-3" />
+                        Navigate
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteLocation(location.id)}
+                        className="flex items-center gap-1 border-red-200 text-red-700 hover:bg-red-50"
+                      >
+                        <BookmarkCheck className="h-3 w-3" />
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
-
-      {/* POI Places */}
-      {showPOIPlaces && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Nearby Healthcare & Support Places</h2>
-          <p className="text-sm text-gray-600">
-            Found using Point of Interest search - includes hospitals, clinics, psychology centers, schools, and community facilities
-          </p>
-
-          {poiPlaces.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <div className="text-4xl mb-4">🏥</div>
-              <p>No nearby places found.</p>
-              <p className="text-sm">Try increasing the search radius or searching from a different location.</p>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {poiPlaces.map((place) => (
-                <div key={place.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow border-green-200">
-                  <div className="mb-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold">{place.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block px-2 py-1 text-xs rounded bg-green-500 text-white">
-                          {place.category.split('.').pop()?.replace('_', ' ') || 'POI'}
-                        </span>
-                      </div>
-                    </div>
-                    {place.distance && (
-                      <p className="text-sm text-green-600 font-medium">
-                        {formatDistance(place.distance)} away
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5 text-gray-500" />
-                      <p className="text-sm text-gray-600">{place.formatted}</p>
-                    </div>
-
-                    {place.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-gray-500" />
-                        <a href={`tel:${place.phone}`} className="text-sm text-blue-600 hover:underline">
-                          {place.phone}
-                        </a>
-                      </div>
-                    )}
-
-                    {place.website && (
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-gray-500" />
-                        <a href={place.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
-                          Visit Website
-                        </a>
-                      </div>
-                    )}
-
-                    {place.rating && (
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <p className="text-sm text-gray-600">{place.rating}/5</p>
-                      </div>
-                    )}
-
-                    {place.opening_hours && (
-                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                        {place.opening_hours}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleShowRoute({
-                        id: place.id,
-                        name: place.name,
-                        type: 'support', // Default type for POI places
-                        address: place.formatted,
-                        latitude: place.latitude,
-                        longitude: place.longitude,
-                        phone: place.phone,
-                        description: `${place.category} - Found via POI search`,
-                        verified: true,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })}
-                      className="flex items-center gap-1"
-                    >
-                      🛣️ Route
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGetDirections({
-                        id: place.id,
-                        name: place.name,
-                        type: 'support', // Default type for POI places
-                        address: place.formatted,
-                        latitude: place.latitude,
-                        longitude: place.longitude,
-                        phone: place.phone,
-                        description: `${place.category} - Found via POI search`,
-                        verified: true,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })}
-                      className="flex items-center gap-1"
-                    >
-                      <Navigation className="h-3 w-3" />
-                      Navigate
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => handleSaveCenter({
-                        id: place.id,
-                        name: place.name,
-                        type: 'support',
-                        address: place.formatted,
-                        latitude: place.latitude,
-                        longitude: place.longitude,
-                        phone: place.phone,
-                        description: `${place.category} - Found via POI search`,
-                        verified: false,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                      })}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Save Place
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Full Navigation Screen */}
-      {navigationCenter && (
-        <FullNavigationScreen
-          destination={navigationCenter}
-          onClose={handleCloseNavigation}
-        />
       )}
     </div>
   )

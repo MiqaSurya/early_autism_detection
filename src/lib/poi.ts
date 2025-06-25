@@ -1,5 +1,35 @@
 const GEOAPIFY_API_KEY = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
 
+// Test function to verify API connectivity
+export async function testGeoapifyAPI(): Promise<void> {
+  console.log('🧪 Testing Geoapify API connectivity...')
+  console.log('🔑 API Key:', GEOAPIFY_API_KEY ? `${GEOAPIFY_API_KEY.substring(0, 8)}...` : 'MISSING')
+
+  if (!GEOAPIFY_API_KEY) {
+    console.error('❌ Geoapify API key is not configured')
+    return
+  }
+
+  try {
+    // Test with a simple search around KL
+    const testUrl = `https://api.geoapify.com/v2/places?categories=healthcare.psychology&filter=circle:101.6869,3.1390,5000&limit=5&apiKey=${GEOAPIFY_API_KEY}`
+    console.log('🔍 Test URL:', testUrl)
+
+    const response = await fetch(testUrl)
+    console.log('📡 Test Response:', response.status, response.statusText)
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log('✅ API Test Success:', data)
+    } else {
+      const errorText = await response.text()
+      console.error('❌ API Test Failed:', errorText)
+    }
+  } catch (error) {
+    console.error('❌ API Test Error:', error)
+  }
+}
+
 export interface POIPlace {
   id: string
   name: string
@@ -89,24 +119,30 @@ export async function searchPOI(
     const lat = latitude
     const lon = longitude
     
+    // Use simple circle filter for now
+    const filterString = `${filter}:${lon},${lat},${radius}`
+
     const params = new URLSearchParams({
       categories: categories.join(','),
-      filter: `${filter}:${lon},${lat},${radius}`,
+      filter: filterString,
       limit: limit.toString(),
       apiKey: GEOAPIFY_API_KEY
     })
 
-    // Add country filter if specified
+    // Add country filter as separate parameter if specified
     if (countryCode) {
-      params.append('filter', `countrycode:${countryCode}`)
+      params.append('bias', `countrycode:${countryCode}`)
     }
 
     const url = `https://api.geoapify.com/v2/places?${params}`
-    
+    console.log('🔍 POI Search URL:', url)
+
     const response = await fetch(url)
-    
+
     if (!response.ok) {
-      throw new Error(`POI search failed: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('POI API Error Response:', errorText)
+      throw new Error(`POI search failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
     
     const result = await response.json()
@@ -178,7 +214,7 @@ export async function searchHealthcarePOI(
 }
 
 /**
- * Search for autism-related facilities
+ * Search for autism-specific facilities only - Enhanced automatic search
  */
 export async function searchAutismRelatedPOI(
   latitude: number,
@@ -186,43 +222,179 @@ export async function searchAutismRelatedPOI(
   radius: number = 10000,
   limit: number = 20
 ): Promise<POIPlace[]> {
-  const healthcarePlaces = await searchPOI(latitude, longitude, {
-    categories: [
-      HEALTHCARE_CATEGORIES.PSYCHOLOGY,
-      HEALTHCARE_CATEGORIES.CLINIC,
-      HEALTHCARE_CATEGORIES.HOSPITAL,
-      HEALTHCARE_CATEGORIES.ALTERNATIVE_MEDICINE
-    ],
-    radius,
-    limit: Math.floor(limit * 0.6),
-    countryCode: 'MY'
-  })
+  try {
+    console.log('🔍 Automatically searching for all autism centers and related facilities...')
+    console.log(`📍 Search parameters: lat=${latitude}, lon=${longitude}, radius=${radius}m, limit=${limit}`)
 
-  const educationPlaces = await searchPOI(latitude, longitude, {
-    categories: [
-      EDUCATION_CATEGORIES.SCHOOL,
-      EDUCATION_CATEGORIES.KINDERGARTEN,
-      EDUCATION_CATEGORIES.UNIVERSITY
-    ],
-    radius,
-    limit: Math.floor(limit * 0.3),
-    countryCode: 'MY'
-  })
+    if (!GEOAPIFY_API_KEY) {
+      console.error('❌ Geoapify API key is missing!')
+      return []
+    }
 
-  const communityPlaces = await searchPOI(latitude, longitude, {
-    categories: [
-      COMMUNITY_CATEGORIES.COMMUNITY_CENTER,
-      COMMUNITY_CATEGORIES.SOCIAL_FACILITY,
-      COMMUNITY_CATEGORIES.NGO
-    ],
-    radius,
-    limit: Math.floor(limit * 0.1),
-    countryCode: 'MY'
-  })
+    // Search multiple categories to find autism centers - cast a wider net initially
+    const searchPromises = [
+      // Psychology centers (most likely to have autism services)
+      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.PSYCHOLOGY, radius, limit),
+      // General healthcare facilities
+      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.HEALTHCARE_GENERAL, radius, limit),
+      // Clinics and medical practices
+      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.CLINIC, radius, limit),
+      // Hospitals (may have autism departments)
+      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.HOSPITAL, radius, Math.floor(limit/2)),
+      // Educational facilities (special needs schools)
+      searchPOIByCategory(latitude, longitude, EDUCATION_CATEGORIES.SCHOOL, radius, Math.floor(limit/2)),
+      // Community centers (may offer autism support)
+      searchPOIByCategory(latitude, longitude, COMMUNITY_CATEGORIES.COMMUNITY_CENTER, radius, Math.floor(limit/3)),
+      // Social facilities (may include autism support services)
+      searchPOIByCategory(latitude, longitude, COMMUNITY_CATEGORIES.SOCIAL_FACILITY, radius, Math.floor(limit/4)),
+      // Alternative medicine (may include autism therapies)
+      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.ALTERNATIVE_MEDICINE, radius, Math.floor(limit/4))
+    ]
 
-  // Combine and sort by distance
-  const allPlaces = [...healthcarePlaces, ...educationPlaces, ...communityPlaces]
-  return allPlaces.sort((a, b) => (a.distance || 0) - (b.distance || 0))
+    // Execute all searches in parallel for faster results
+    const results = await Promise.allSettled(searchPromises)
+
+    // Combine all successful results
+    let allPlaces: POIPlace[] = []
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        const categoryName = ['Psychology', 'Healthcare', 'Clinics', 'Hospitals', 'Schools', 'Community Centers', 'Social Facilities', 'Alternative Medicine'][index]
+        console.log(`✅ Found ${result.value.length} ${categoryName} facilities`)
+        allPlaces = [...allPlaces, ...result.value]
+      } else {
+        console.log(`⚠️ Search failed for category ${index}:`, result.reason)
+      }
+    })
+
+    console.log(`🔍 Total places found before filtering: ${allPlaces.length}`)
+    console.log('🔍 All places found:', allPlaces.map(p => `${p.name} (${p.category})`))
+
+    // Balanced autism-related filtering - include likely autism centers while excluding general medical
+    const autismRelatedPlaces = allPlaces.filter(place => {
+      const name = place.name.toLowerCase()
+      const address = place.address.toLowerCase()
+      const formatted = place.formatted.toLowerCase()
+      const category = place.category.toLowerCase()
+
+      // Direct autism-specific keywords
+      const directAutismKeywords = [
+        'autism', 'autistic', 'asd', 'asperger', 'aspergers'
+      ]
+
+      // Developmental and special needs keywords
+      const developmentalKeywords = [
+        'developmental', 'development', 'special needs', 'special education',
+        'early intervention', 'early childhood', 'neurodevelopmental'
+      ]
+
+      // Therapy keywords that are often autism-related
+      const therapyKeywords = [
+        'behavioral', 'behaviour', 'speech therapy', 'occupational therapy',
+        'speech pathology', 'ot therapy', 'behavioral intervention',
+        'therapy center', 'therapy centre', 'rehabilitation'
+      ]
+
+      // Child-focused keywords
+      const childKeywords = [
+        'child', 'children', 'pediatric', 'paediatric', 'kids',
+        'child development', 'child psychology', 'child psychiatry'
+      ]
+
+      // Psychology and medical keywords
+      const psychologyKeywords = [
+        'psychology', 'psychological', 'psychologist', 'psychiatry', 'psychiatric'
+      ]
+
+      // Support and educational keywords
+      const supportKeywords = [
+        'support', 'center', 'centre', 'clinic', 'learning disability',
+        'learning difficulties', 'inclusive education', 'special education'
+      ]
+
+      // Check for direct autism terms (highest priority)
+      const hasDirectAutism = directAutismKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Check for developmental terms
+      const hasDevelopmental = developmentalKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Check for therapy terms
+      const hasTherapy = therapyKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Check for child-focused terms
+      const hasChild = childKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Check for psychology terms
+      const hasPsychology = psychologyKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Check for support terms
+      const hasSupport = supportKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      // Inclusion logic - more flexible but still targeted
+      const isIncluded =
+        hasDirectAutism || // Always include direct autism references
+        (hasDevelopmental && (hasChild || hasTherapy || hasSupport)) || // Developmental + child/therapy/support
+        (hasTherapy && hasChild) || // Therapy + child focus
+        (hasPsychology && hasChild) || // Psychology + child focus
+        (category.includes('psychology') && hasChild) || // Psychology category + child focus
+        (hasChild && hasDevelopmental) // Child + developmental focus
+
+      // Additional exclusions for clearly non-autism places
+      const excludeKeywords = [
+        'dental', 'dentist', 'pharmacy', 'hospital emergency', 'emergency room',
+        'surgery', 'surgical', 'orthopedic', 'cardiology', 'oncology',
+        'dermatology', 'ophthalmology', 'radiology', 'laboratory'
+      ]
+
+      const shouldExclude = excludeKeywords.some(keyword =>
+        name.includes(keyword) || address.includes(keyword) || formatted.includes(keyword)
+      )
+
+      const finalDecision = isIncluded && !shouldExclude
+
+      // Log what we're filtering for debugging
+      if (finalDecision) {
+        console.log(`✅ Including: ${place.name} (${place.category}) - Reasons: ${[
+          hasDirectAutism && 'Direct autism',
+          hasDevelopmental && 'Developmental',
+          hasTherapy && 'Therapy',
+          hasChild && 'Child-focused',
+          hasPsychology && 'Psychology'
+        ].filter(Boolean).join(', ')}`)
+      } else {
+        console.log(`❌ Excluding: ${place.name} (${place.category}) - Reason: ${
+          shouldExclude ? 'Excluded category' : 'Not autism-related'
+        }`)
+      }
+
+      return finalDecision
+    })
+
+    // Remove duplicates based on name and location proximity
+    const uniquePlaces = removeDuplicatePlaces(autismRelatedPlaces)
+
+    console.log(`✅ Automatically found ${uniquePlaces.length} autism-related facilities`)
+    console.log('📍 Facilities found:', uniquePlaces.map(p => `${p.name} (${p.category})`))
+
+    // Sort by distance for better user experience
+    return uniquePlaces.sort((a, b) => (a.distance || 0) - (b.distance || 0))
+
+  } catch (error) {
+    console.error('❌ Automatic autism center search failed:', error)
+    // Return empty array instead of throwing to allow fallback to database centers
+    return []
+  }
 }
 
 /**
@@ -238,23 +410,45 @@ export async function searchPOIByCategory(
   // Your exact code pattern
   const lat = latitude
   const lon = longitude
-  
+
   try {
-    const response = await fetch(
-      `https://api.geoapify.com/v2/places?categories=${category}&filter=circle:${lon},${lat},${radius}&limit=${limit}&apiKey=${GEOAPIFY_API_KEY}`
-    )
+    if (!GEOAPIFY_API_KEY) {
+      console.error(`❌ Geoapify API key missing for category: ${category}`)
+      return []
+    }
+
+    const url = `https://api.geoapify.com/v2/places?categories=${category}&filter=circle:${lon},${lat},${radius}&limit=${limit}&apiKey=${GEOAPIFY_API_KEY}`
+    console.log(`🔍 Searching ${category}:`, url)
+
+    const response = await fetch(url)
+    console.log(`📡 API Response for ${category}: ${response.status} ${response.statusText}`)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ POI Category API Error for ${category}:`, errorText)
+      throw new Error(`POI category search failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
     const result = await response.json()
-    
+    console.log(`📊 Raw API result for ${category}:`, result)
+
+    if (!result.features || result.features.length === 0) {
+      console.log(`ℹ️ No ${category} places found in API response`)
+      return []
+    }
+
+    console.log(`✅ Found ${result.features.length} ${category} places in API response`)
+
     const places: POIPlace[] = []
-    
+
     // Your exact forEach pattern
     result.features.forEach((place: any) => {
       console.log(place.properties.name, place.geometry.coordinates)
-      
+
       const coordinates = place.geometry.coordinates
       const properties = place.properties
       const distance = calculateDistance(latitude, longitude, coordinates[1], coordinates[0])
-      
+
       places.push({
         id: properties.place_id || `poi-${Date.now()}-${Math.random()}`,
         name: properties.name || 'Unknown Place',
@@ -267,12 +461,14 @@ export async function searchPOIByCategory(
         properties: properties
       })
     })
-    
+
+    console.log(`Found ${places.length} ${category} places`)
     return places
-    
+
   } catch (error) {
     console.error('POI category search error:', error)
-    throw error
+    // Return empty array instead of throwing to allow other searches to continue
+    return []
   }
 }
 
@@ -308,15 +504,41 @@ export async function getNearbyPlaces(
 }
 
 /**
+ * Remove duplicate places based on name similarity and location proximity
+ */
+function removeDuplicatePlaces(places: POIPlace[]): POIPlace[] {
+  const uniquePlaces: POIPlace[] = []
+
+  for (const place of places) {
+    const isDuplicate = uniquePlaces.some(existing => {
+      // Check if names are similar (allowing for minor variations)
+      const nameSimilar = place.name.toLowerCase().trim() === existing.name.toLowerCase().trim()
+
+      // Check if locations are very close (within 100 meters)
+      const distance = calculateDistance(place.latitude, place.longitude, existing.latitude, existing.longitude)
+      const locationClose = distance < 100 // 100 meters
+
+      return nameSimilar || locationClose
+    })
+
+    if (!isDuplicate) {
+      uniquePlaces.push(place)
+    }
+  }
+
+  return uniquePlaces
+}
+
+/**
  * Calculate distance between two points (Haversine formula)
  */
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000 // Earth's radius in meters
   const dLat = (lat2 - lat1) * Math.PI / 180
   const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = 
+  const a =
     Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon/2) * Math.sin(dLon/2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
   return R * c

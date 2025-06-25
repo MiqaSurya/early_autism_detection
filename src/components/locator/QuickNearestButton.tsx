@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Navigation, Loader2, MapPin } from 'lucide-react'
 import { AutismCenter } from '@/types/location'
 import { getCurrentLocation, findNearestCenter } from '@/lib/geoapify'
+import { navigateToNavigationPage } from '@/lib/navigation-utils'
 
 interface QuickNearestButtonProps {
   centers: AutismCenter[]
@@ -19,6 +21,7 @@ export default function QuickNearestButton({
   onNavigate,
   className = ""
 }: QuickNearestButtonProps) {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const findAndNavigateToNearest = async () => {
@@ -53,14 +56,13 @@ export default function QuickNearestButton({
           onNearestFound(nearestCenter, distance)
         }
 
-        // Start navigation if callback provided
+        // Start navigation
         if (onNavigate) {
           onNavigate(nearestCenter)
         } else {
-          // Fallback to external maps
-          const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${nearestCenter.latitude},${nearestCenter.longitude}`
-          window.open(googleMapsUrl, '_blank')
-          alert(`Found nearest center: ${nearestCenter.name} (${distance.toFixed(1)} km away)\n\nOpening directions in Google Maps...`)
+          // Navigate to navigation page
+          const navigationUrl = navigateToNavigationPage(nearestCenter)
+          router.push(navigationUrl)
         }
       } else {
         alert('No autism centers found in your area')

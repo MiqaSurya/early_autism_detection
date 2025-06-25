@@ -7,11 +7,11 @@ import { reverseGeocodeSimple } from '@/lib/geocoding'
 import { AutismCenter } from '@/types/location'
 import TurnByTurnNavigation from './TurnByTurnNavigation'
 import NavigationMap from './NavigationMap'
-import SSRSafeNavigationMap from './SSRSafeNavigationMap'
 import NavigationErrorBoundary from './NavigationErrorBoundary'
+import ManualLocationInput from './ManualLocationInput'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, AlertTriangle, Navigation, X } from 'lucide-react'
+import { Loader2, AlertTriangle, Navigation, X, MapPin } from 'lucide-react'
 
 interface FullNavigationScreenProps {
   destination: AutismCenter
@@ -29,6 +29,7 @@ export default function FullNavigationScreen({
   const [error, setError] = useState<string | null>(null)
   const [isNavigating, setIsNavigating] = useState(false)
   const [isOffRouteWarning, setIsOffRouteWarning] = useState(false)
+  const [showManualInput, setShowManualInput] = useState(false)
 
   // Get initial user location and calculate route
   useEffect(() => {
@@ -50,13 +51,17 @@ export default function FullNavigationScreen({
     }
   }, [userLocation, route, isNavigating, isOffRouteWarning])
 
-  const initializeNavigation = async () => {
+  const initializeNavigation = async (useQuickLocation = false) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Get user location
-      const location = await getCurrentLocation()
+      // Get user location with improved options
+      const locationOptions = useQuickLocation
+        ? { timeout: 10000, enableHighAccuracy: false, retries: 1 } // Quick mode
+        : { timeout: 20000, enableHighAccuracy: true, retries: 2 }  // Accurate mode
+
+      const location = await getCurrentLocation(locationOptions)
       const userPos: [number, number] = [location.lat, location.lon]
       setUserLocation(userPos)
 
@@ -96,9 +101,23 @@ export default function FullNavigationScreen({
       } else {
         setError('Unable to calculate route to destination')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Navigation initialization error:', err)
-      setError('Failed to initialize navigation. Please check your location settings.')
+
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to initialize navigation.'
+
+      if (err.code === 1) { // PERMISSION_DENIED
+        errorMessage = 'Location access denied. Please enable location services and try again.'
+      } else if (err.code === 2) { // POSITION_UNAVAILABLE
+        errorMessage = 'Location unavailable. Please check your internet connection.'
+      } else if (err.code === 3) { // TIMEOUT
+        errorMessage = 'Location request timed out. Try moving to an area with better signal or use quick location mode.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -139,6 +158,42 @@ export default function FullNavigationScreen({
     setUserLocation(newLocation)
   }
 
+  const handleManualLocationSelect = async (location: { lat: number; lon: number; address: string }) => {
+    setShowManualInput(false)
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const userPos: [number, number] = [location.lat, location.lon]
+      setUserLocation(userPos)
+      setUserAddress(location.address)
+
+      console.log('Manual location selected:', {
+        userLocation: location,
+        destination: { lat: destination.latitude, lon: destination.longitude },
+        destinationName: destination.name
+      })
+
+      // Calculate route from manual location
+      const calculatedRoute = await getDirections(
+        { lat: location.lat, lon: location.lon },
+        { lat: destination.latitude, lon: destination.longitude },
+        'drive'
+      )
+
+      if (calculatedRoute) {
+        setRoute(calculatedRoute)
+      } else {
+        setError('Unable to calculate route from the selected location')
+      }
+    } catch (err: any) {
+      console.error('Manual location route calculation error:', err)
+      setError('Failed to calculate route from the selected location')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -154,20 +209,50 @@ export default function FullNavigationScreen({
 
   // Error state
   if (error) {
+    const isLocationError = error.includes('Location') || error.includes('timed out') || error.includes('denied')
+
     return (
       <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
         <Card className="p-8 text-center max-w-md mx-4">
           <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-600" />
           <h2 className="text-xl font-semibold mb-2">Navigation Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <div className="flex gap-2">
-            <Button onClick={initializeNavigation} className="flex-1">
-              Try Again
-            </Button>
-            <Button onClick={onClose} variant="outline" className="flex-1">
-              Close
-            </Button>
-          </div>
+          <p className="text-gray-600 mb-6">{error}</p>
+
+          {isLocationError ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Button onClick={() => initializeNavigation(false)} className="flex-1">
+                  Try Again (Accurate)
+                </Button>
+                <Button onClick={() => initializeNavigation(true)} variant="outline" className="flex-1">
+                  Quick Mode
+                </Button>
+              </div>
+              <div className="text-xs text-gray-500">
+                Quick mode uses less accurate but faster location detection
+              </div>
+              <Button
+                onClick={() => setShowManualInput(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Enter Location Manually
+              </Button>
+              <Button onClick={onClose} variant="ghost" className="w-full">
+                Cancel Navigation
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button onClick={() => initializeNavigation(false)} className="flex-1">
+                Try Again
+              </Button>
+              <Button onClick={onClose} variant="outline" className="flex-1">
+                Close
+              </Button>
+            </div>
+          )}
         </Card>
       </div>
     )
@@ -180,15 +265,28 @@ export default function FullNavigationScreen({
         <Card className="p-8 text-center max-w-md mx-4">
           <Navigation className="h-12 w-12 mx-auto mb-4 text-gray-600" />
           <h2 className="text-xl font-semibold mb-2">No Route Available</h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 mb-6">
             Unable to find a route to {destination.name}. This may be due to location restrictions or network issues.
           </p>
-          <div className="flex gap-2">
-            <Button onClick={initializeNavigation} className="flex-1">
-              Retry
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Button onClick={() => initializeNavigation(false)} className="flex-1">
+                Retry (Accurate)
+              </Button>
+              <Button onClick={() => initializeNavigation(true)} variant="outline" className="flex-1">
+                Quick Retry
+              </Button>
+            </div>
+            <Button
+              onClick={() => setShowManualInput(true)}
+              variant="outline"
+              className="w-full"
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              Enter Location Manually
             </Button>
-            <Button onClick={onClose} variant="outline" className="flex-1">
-              Close
+            <Button onClick={onClose} variant="ghost" className="w-full">
+              Cancel Navigation
             </Button>
           </div>
         </Card>
@@ -290,8 +388,13 @@ export default function FullNavigationScreen({
             </span>
           </div>
           
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 mb-2">
             Best route considering current traffic conditions
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span>🛣️ Follow the blue route on the map to reach your destination</span>
           </div>
         </div>
 
@@ -314,6 +417,15 @@ export default function FullNavigationScreen({
           </Button>
         </div>
       </div>
+
+      {/* Manual Location Input Modal */}
+      {showManualInput && (
+        <ManualLocationInput
+          onLocationSelect={handleManualLocationSelect}
+          onClose={() => setShowManualInput(false)}
+          destinationName={destination.name}
+        />
+      )}
     </div>
   )
 }

@@ -1,51 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Use the auth helpers client for consistency with middleware
+export const supabase = createClientComponentClient()
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-// TypeScript type assertion since we've checked for undefined
-const url = supabaseUrl as string
-const key = supabaseAnonKey as string
-
-// Create a singleton instance
-let supabaseInstance: ReturnType<typeof createClient> | null = null
-
-export function getSupabase() {
-  if (supabaseInstance) {
-    return supabaseInstance
-  }
-
-  supabaseInstance = createClient(url, key, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined
-    },
-    global: {
-      headers: {
-        'X-Client-Info': '@supabase/auth-helpers-nextjs',
-      },
-    },
-  })
-
-  // Log initialization
+// Log initialization
+if (typeof window !== 'undefined') {
   console.log('Supabase client initialized with:', {
-    url,
-    hasKey: !!key,
-    storage: typeof window !== 'undefined' ? 'localStorage' : 'none'
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    storage: 'cookies (auth-helpers)'
   })
-
-  return supabaseInstance
 }
-
-// Export a singleton instance
-export const supabase = getSupabase()
 
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut()

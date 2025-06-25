@@ -1,40 +1,49 @@
--- SQL script to create the chat_history table in Supabase
-
--- Create the chat_history table
-CREATE TABLE IF NOT EXISTS public.chat_history (
-  id BIGSERIAL PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  question TEXT NOT NULL,
-  answer TEXT NOT NULL,
-  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- Create chat_history table for storing AI chat conversations
+CREATE TABLE IF NOT EXISTS chat_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add comment to the table
-COMMENT ON TABLE public.chat_history IS 'Stores chat interactions between users and the AI assistant';
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_chat_history_user_id ON chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_created_at ON chat_history(created_at);
 
--- Create an index on user_id for faster lookups
-CREATE INDEX IF NOT EXISTS chat_history_user_id_idx ON public.chat_history(user_id);
+-- Enable Row Level Security (RLS)
+ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
 
--- Create an index on timestamp for sorting
-CREATE INDEX IF NOT EXISTS chat_history_timestamp_idx ON public.chat_history(timestamp DESC);
+-- Create RLS policies
+-- Users can only see their own chat history
+CREATE POLICY "Users can view own chat history" ON chat_history
+    FOR SELECT USING (auth.uid() = user_id);
 
--- Set up Row Level Security (RLS) policies
--- Enable RLS on the table
-ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
+-- Users can insert their own chat history
+CREATE POLICY "Users can insert own chat history" ON chat_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Create a policy that allows users to select only their own chat history
-CREATE POLICY chat_history_select_policy 
-  ON public.chat_history 
-  FOR SELECT 
-  USING (auth.uid() = user_id);
+-- Users can update their own chat history
+CREATE POLICY "Users can update own chat history" ON chat_history
+    FOR UPDATE USING (auth.uid() = user_id);
 
--- Create a policy that allows users to insert only their own chat history
-CREATE POLICY chat_history_insert_policy 
-  ON public.chat_history 
-  FOR INSERT 
-  WITH CHECK (auth.uid() = user_id);
+-- Users can delete their own chat history
+CREATE POLICY "Users can delete own chat history" ON chat_history
+    FOR DELETE USING (auth.uid() = user_id);
 
--- Grant permissions to authenticated users
-GRANT SELECT, INSERT ON public.chat_history TO authenticated;
-GRANT USAGE, SELECT ON SEQUENCE public.chat_history_id_seq TO authenticated;
+-- Create a function to automatically update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger to automatically update updated_at
+CREATE TRIGGER update_chat_history_updated_at
+    BEFORE UPDATE ON chat_history
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();

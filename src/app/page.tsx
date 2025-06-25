@@ -107,7 +107,7 @@ export default function Home() {
 
             <div className="flex justify-center">
               <Link
-                href="/auth/signup"
+                href="/auth/register"
                 className="bg-pink-400 hover:bg-pink-500 text-black font-bold py-3 px-12 rounded-full"
               >
                 REGISTER

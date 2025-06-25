@@ -60,11 +60,23 @@ export async function getDirections(
   }
 
   try {
-    // Using your exact routing API pattern
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lon}|${to.lat},${to.lon}&mode=${mode}&apiKey=${GEOAPIFY_API_KEY}`
+    // Enhanced routing API call for detailed road-following routes
+    const params = new URLSearchParams({
+      waypoints: `${from.lat},${from.lon}|${to.lat},${to.lon}`,
+      mode: mode,
+      apiKey: GEOAPIFY_API_KEY,
+      // Request detailed geometry for road-following routes
+      details: 'instruction',
+      // Request full geometry (not simplified)
+      geometry: 'polyline',
+      // Ensure we get the most detailed route
+      format: 'geojson'
+    })
+
+    const url = `https://api.geoapify.com/v1/routing?${params}`
 
     console.log('Navigation request:', { from, to, mode, url: url.replace(GEOAPIFY_API_KEY, 'API_KEY') })
-    
+
     const response = await fetch(url)
     
     if (!response.ok) {

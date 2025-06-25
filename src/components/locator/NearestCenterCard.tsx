@@ -279,12 +279,11 @@ export default function NearestCenterCard({
                   ? 'bg-green-100 border-green-300 text-green-700'
                   : 'border-blue-300 text-blue-700 hover:bg-blue-100'
               }`}
-              disabled={isSaved && isSaved(nearestCenter)}
             >
               {isSaved && isSaved(nearestCenter) ? (
                 <>
                   <BookmarkCheck className="h-4 w-4" />
-                  Saved
+                  Remove
                 </>
               ) : (
                 <>

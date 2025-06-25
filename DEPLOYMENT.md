@@ -16,8 +16,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```env
 SENDGRID_API_KEY=your_sendgrid_api_key_here
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1/chat/completions
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ### 2. How to Add Environment Variables in Vercel

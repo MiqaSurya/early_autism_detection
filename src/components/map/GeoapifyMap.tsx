@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { AutismCenter } from '@/types/location'
 
 // Fix for default markers in React Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -13,20 +14,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
 
-interface AutismCenter {
-  id: string
-  name: string
-  type: string
-  address: string
-  latitude: number
-  longitude: number
-  phone?: string
-  website?: string
-  email?: string
-  description?: string
-  services?: string[]
-  distance?: number
-}
+
 
 interface GeoapifyMapProps {
   centers: AutismCenter[]
@@ -34,6 +22,7 @@ interface GeoapifyMapProps {
   onCenterSelect?: (center: AutismCenter) => void
   className?: string
   zoom?: number
+  center?: [number, number] // Optional center override
   route?: {
     coordinates: [number, number][] // [longitude, latitude] pairs from routing API
     summary?: string
@@ -42,7 +31,10 @@ interface GeoapifyMapProps {
 }
 
 // Custom marker icons for different center types
-const createCustomIcon = (type: string, isSelected: boolean = false) => {
+const createCustomIcon = (type: string | undefined, isSelected: boolean = false) => {
+  // Provide a default type if undefined
+  const safeType = type || 'default'
+
   const colors = {
     diagnostic: isSelected ? '#dc2626' : '#ef4444',
     therapy: isSelected ? '#059669' : '#10b981',
@@ -51,7 +43,10 @@ const createCustomIcon = (type: string, isSelected: boolean = false) => {
     default: isSelected ? '#1f2937' : '#6b7280'
   }
 
-  const color = colors[type as keyof typeof colors] || colors.default
+  const color = colors[safeType as keyof typeof colors] || colors.default
+
+  // Get the first letter, with fallback
+  const iconLetter = safeType && safeType.length > 0 ? safeType.charAt(0).toUpperCase() : 'C'
 
   return L.divIcon({
     html: `
@@ -69,7 +64,7 @@ const createCustomIcon = (type: string, isSelected: boolean = false) => {
         color: white;
         font-weight: bold;
       ">
-        ${type.charAt(0).toUpperCase()}
+        ${iconLetter}
       </div>
     `,
     className: 'custom-div-icon',
@@ -123,19 +118,25 @@ export default function GeoapifyMap({
   onCenterSelect,
   className = "h-96 w-full",
   zoom = 13,
+  center,
   route,
   showRoute = true
 }: GeoapifyMapProps) {
   const [selectedCenter, setSelectedCenter] = useState<string | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>(
-    userLocation || [40.7589, -73.9851] // Default to NYC
+    center || userLocation || [3.1390, 101.6869] // Default to KL
   )
 
   useEffect(() => {
-    if (userLocation) {
+    // Priority: center prop > userLocation > default
+    if (center) {
+      console.log('🗺️ GeoapifyMap centering on provided center:', center)
+      setMapCenter(center)
+    } else if (userLocation) {
+      console.log('🗺️ GeoapifyMap centering on user location:', userLocation)
       setMapCenter(userLocation)
     }
-  }, [userLocation])
+  }, [center, userLocation])
 
   const handleMarkerClick = (center: AutismCenter) => {
     setSelectedCenter(center.id)
@@ -155,20 +156,89 @@ export default function GeoapifyMap({
   }
 
   // Convert route coordinates for Leaflet (swap lon/lat to lat/lon)
-  const routeCoordinates = route?.coordinates
-    .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
-    .map(coord => [coord[1], coord[0]] as [number, number]) || []
+  const routeCoordinates = (() => {
+    if (!route?.coordinates) return []
 
-  // Debug route coordinates
+    let coords = route.coordinates
+
+    // Handle LineString geometry format: coordinates is an array of [lon, lat] pairs
+    // If the first element is an array, it means we have the correct format
+    if (Array.isArray(coords) && coords.length > 0) {
+      // Check if this is already a flat array of coordinate pairs
+      if (Array.isArray(coords[0]) && coords[0].length === 2 && typeof coords[0][0] === 'number') {
+        // This is the correct format: [[lon, lat], [lon, lat], ...]
+        return coords
+          .filter(coord => {
+            if (!Array.isArray(coord) || coord.length < 2) return false
+            const [lon, lat] = coord
+            return typeof lat === 'number' && typeof lon === 'number' &&
+                   lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
+                   !isNaN(lat) && !isNaN(lon)
+          })
+          .map(coord => {
+            const [lon, lat] = coord
+            return [lat, lon] as [number, number] // Convert to [lat, lon] for Leaflet
+          })
+      }
+
+      // Handle nested LineString format: [[[lon, lat], [lon, lat], ...]]
+      if (Array.isArray(coords[0]) && Array.isArray((coords[0] as any)[0])) {
+        console.log('🔍 Detected nested LineString format, flattening...')
+        coords = coords[0] as unknown as [number, number][] // Take the first (and usually only) LineString
+      }
+
+      // Now process as flat coordinate array
+      return coords
+        .filter(coord => {
+          if (!Array.isArray(coord) || coord.length < 2) return false
+          const [lon, lat] = coord
+          return typeof lat === 'number' && typeof lon === 'number' &&
+                 lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
+                 !isNaN(lat) && !isNaN(lon)
+        })
+        .map(coord => {
+          const [lon, lat] = coord
+          return [lat, lon] as [number, number] // Convert to [lat, lon] for Leaflet
+        })
+    }
+
+    return []
+  })()
+
+  // Debug route coordinates with more detail
   useEffect(() => {
     if (route) {
-      console.log('🗺️ GeoapifyMap route data:', {
-        originalCoordinates: route.coordinates?.slice(0, 3),
-        convertedCoordinates: routeCoordinates.slice(0, 3),
-        totalPoints: route.coordinates?.length,
+      console.log('🗺️ GeoapifyMap route processing:', {
+        hasRoute: !!route,
         showRoute,
-        summary: route.summary
+        originalCoordinatesCount: route?.coordinates?.length || 0,
+        validCoordinatesCount: routeCoordinates.length,
+        firstOriginal: route?.coordinates?.[0],
+        firstConverted: routeCoordinates[0],
+        lastOriginal: route?.coordinates?.[route.coordinates.length - 1],
+        lastConverted: routeCoordinates[routeCoordinates.length - 1],
+        summary: route?.summary
       })
+
+      // Detailed analysis of coordinate format
+      if (route.coordinates && route.coordinates.length > 0) {
+        const firstCoord = route.coordinates[0]
+        console.log('🔍 Coordinate format analysis:', {
+          firstCoordinate: firstCoord,
+          coordinateType: typeof firstCoord,
+          isArray: Array.isArray(firstCoord),
+          length: firstCoord?.length,
+          firstElement: firstCoord?.[0],
+          secondElement: firstCoord?.[1],
+          thirdElement: (firstCoord as any)?.[2],
+          sampleCoordinates: route.coordinates.slice(0, 3)
+        })
+      }
+
+      if (route.coordinates && route.coordinates.length > 0 && routeCoordinates.length === 0) {
+        console.error('❌ Route coordinates were filtered out! Original coordinates:', route.coordinates.slice(0, 5))
+        console.error('❌ Coordinate format issue detected. First few coordinates:', route.coordinates.slice(0, 3))
+      }
     }
   }, [route, routeCoordinates, showRoute])
 
@@ -188,16 +258,16 @@ export default function GeoapifyMap({
         
         <MapUpdater center={mapCenter} zoom={zoom} />
 
-        {/* Route polyline */}
+        {/* Route polyline - Road-following blue route */}
         {showRoute && routeCoordinates.length > 0 && (
           <>
             {/* Debug: Log route data */}
-            {console.log('🛣️ Attempting to render route:', {
+            {console.log('🛣️ Rendering road-following route:', {
               showRoute,
               coordinatesLength: routeCoordinates.length,
               firstCoord: routeCoordinates[0],
               lastCoord: routeCoordinates[routeCoordinates.length - 1],
-              allCoords: routeCoordinates.slice(0, 5)
+              routeFollowsRoads: routeCoordinates.length > 10 ? 'Yes' : 'Possibly straight line'
             })}
 
             {/* Route shadow for better visibility */}
@@ -205,22 +275,37 @@ export default function GeoapifyMap({
               positions={routeCoordinates}
               pathOptions={{
                 color: "#000000",
-                weight: 12,
-                opacity: 0.3
+                weight: 8,
+                opacity: 0.4
               }}
             />
 
-            {/* Main route line */}
+            {/* Main route line - Blue for navigation */}
             <Polyline
               positions={routeCoordinates}
               pathOptions={{
-                color: "#ff0000",
-                weight: 8,
-                opacity: 1.0
+                color: "#0066ff",
+                weight: 6,
+                opacity: 1.0,
+                lineCap: "round",
+                lineJoin: "round"
               }}
             />
 
-            {console.log('✅ Polyline components rendered')}
+            {/* Route highlight for extra visibility */}
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 2,
+                opacity: 0.7,
+                lineCap: "round",
+                lineJoin: "round",
+                dashArray: "5, 10"
+              }}
+            />
+
+            {console.log('✅ Road-following route rendered with', routeCoordinates.length, 'points')}
           </>
         )}
 
@@ -340,10 +425,13 @@ export default function GeoapifyMap({
                 
                 <div className="mt-3 pt-2 border-t flex gap-2">
                   <button
-                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}`, '_blank')}
+                    onClick={() => {
+                      const navigationUrl = `/dashboard/navigation?name=${encodeURIComponent(center.name)}&address=${encodeURIComponent(center.address)}&latitude=${center.latitude}&longitude=${center.longitude}&type=${center.type}${center.phone ? `&phone=${encodeURIComponent(center.phone)}` : ''}${center.id ? `&id=${center.id}` : ''}`
+                      window.location.href = navigationUrl
+                    }}
                     className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
                   >
-                    Get Directions
+                    Navigate
                   </button>
                   
                   {center.phone && (

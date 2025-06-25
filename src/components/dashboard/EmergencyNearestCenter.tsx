@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle, Navigation, Phone, MapPin, Loader2 } from 'lucide-react'
 import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { getCurrentLocation, findNearestCenter } from '@/lib/geoapify'
-import FullNavigationScreen from '../navigation/FullNavigationScreen'
+
 
 export default function EmergencyNearestCenter() {
   const [isLoading, setIsLoading] = useState(false)
   const [nearestCenter, setNearestCenter] = useState<any>(null)
   const [distance, setDistance] = useState<number | null>(null)
-  const [showNavigation, setShowNavigation] = useState(false)
 
   const { centers, fetchCenters } = useAutismCenters({
     autoFetch: false
@@ -72,7 +71,9 @@ export default function EmergencyNearestCenter() {
 
   const handleEmergencyDirections = () => {
     if (nearestCenter) {
-      setShowNavigation(true)
+      // Navigate to the navigation page instead of showing modal
+      const navigationUrl = `/dashboard/navigation?name=${encodeURIComponent(nearestCenter.name)}&address=${encodeURIComponent(nearestCenter.address)}&latitude=${nearestCenter.latitude}&longitude=${nearestCenter.longitude}&type=${nearestCenter.type}${nearestCenter.phone ? `&phone=${encodeURIComponent(nearestCenter.phone)}` : ''}${nearestCenter.id ? `&id=${nearestCenter.id}` : ''}`
+      window.location.href = navigationUrl
     }
   }
 
@@ -139,13 +140,7 @@ export default function EmergencyNearestCenter() {
           </div>
         </div>
 
-        {/* Navigation Screen */}
-        {showNavigation && (
-          <FullNavigationScreen
-            destination={nearestCenter}
-            onClose={() => setShowNavigation(false)}
-          />
-        )}
+
       </Card>
     )
   }

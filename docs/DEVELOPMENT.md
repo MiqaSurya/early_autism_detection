@@ -43,10 +43,8 @@ This guide provides comprehensive information for developers working on the Earl
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    
-   # AI APIs
+   # AI APIs (optional)
    OPENAI_API_KEY=your_openai_api_key
-   DEEPSEEK_API_KEY=your_deepseek_api_key
-   DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1/chat/completions
    
    # Google Maps
    NEXT_PUBLIC_GMAPS_KEY=your_google_maps_api_key

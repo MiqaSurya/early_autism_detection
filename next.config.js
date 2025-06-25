@@ -6,6 +6,13 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
 
+  // SWC configuration for JSX
+  swcMinify: true,
+  compiler: {
+    // Enable JSX transform
+    reactRemoveProperties: false,
+  },
+
   // Image optimization
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],

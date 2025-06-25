@@ -85,13 +85,13 @@ export default function SavedLocationsPage() {
                     <div className="flex gap-3 mt-3">
                       <button
                         onClick={() => {
-                          const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`;
-                          console.log('Opening Google Maps:', googleMapsUrl);
-                          window.open(googleMapsUrl, '_blank');
+                          const navigationUrl = `/dashboard/navigation?name=${encodeURIComponent(location.name)}&address=${encodeURIComponent(location.address)}&latitude=${location.latitude}&longitude=${location.longitude}&type=${location.type}${location.phone ? `&phone=${encodeURIComponent(location.phone)}` : ''}${location.id ? `&id=${location.id}` : ''}`
+                          console.log('Navigating to internal navigation page:', navigationUrl);
+                          window.location.href = navigationUrl
                         }}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
-                        Get Directions
+                        Navigate
                       </button>
                       <button
                         onClick={() => handleDelete(location.id)}

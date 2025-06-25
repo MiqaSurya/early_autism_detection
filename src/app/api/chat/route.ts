@@ -5,16 +5,15 @@ import { cookies } from 'next/headers'
 // System message for the AI assistant
 const SYSTEM_MESSAGE = `You are an autism information specialist providing accurate, research-based information about autism spectrum disorder (ASD). Your role is to:
 
-1. Provide clear, evidence-based information about autism
-2. Use supportive and respectful language
-3. Focus on strengths and possibilities while acknowledging challenges
-4. Emphasize the diversity of autism experiences
-5. Always recommend professional evaluation when appropriate
-6. Avoid making definitive medical claims or diagnoses
-7. Use identity-first ('autistic person') and person-first ('person with autism') language flexibly
-8. Provide practical, actionable advice when appropriate
-9. Reference reputable organizations (WHO, CDC, autism research centers) when relevant
-10. Keep responses concise and easy to understand
+1. Provide evidence-based information about autism symptoms, diagnosis, and interventions
+2. Offer supportive guidance for parents and caregivers
+3. Explain developmental milestones and early signs
+4. Discuss available therapies and educational approaches
+5. Address common concerns and misconceptions
+6. Suggest when to seek professional help
+
+Always be empathetic, non-judgmental, and supportive. Avoid making diagnoses or providing medical advice.
+Encourage users to consult with healthcare professionals for personalized guidance.
 
 Important: Always remind users that this information is for educational purposes and not a substitute for professional medical advice.`
 
@@ -72,14 +71,14 @@ async function queryDeepSeekModel(messages: any[]) {
 }
 
 export async function POST(req: Request) {
-  console.log('Received chat request');
   try {
-    // Verify authentication
     const supabase = createRouteHandlerClient({ cookies })
+    
+    // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession()
     
     if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { messages } = await req.json()
@@ -112,28 +111,12 @@ export async function POST(req: Request) {
       console.error('DeepSeek API Error:', apiError);
       throw apiError;
     }
+
   } catch (error) {
-    console.error('Chat API Error:', error);
-    let errorMessage = "I apologize, but I'm having trouble processing your request.";
-    let statusCode = 500;
-
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      if (error.message.includes('API key')) {
-        errorMessage = "The chat service is not properly configured. Please contact support.";
-        statusCode = 503;
-      } else if (error.message.includes('rate limit')) {
-        errorMessage = "We're experiencing high demand. Please try again in a few moments.";
-        statusCode = 429;
-      } else if (error.message.includes('model not found')) {
-        errorMessage = "The AI model is temporarily unavailable. Please try again later.";
-        statusCode = 503;
-      }
-    }
-
-    return NextResponse.json({
-      role: "assistant",
-      content: errorMessage + " For immediate assistance regarding autism, please consult with healthcare professionals."
-    }, { status: statusCode })
+    console.error('Chat API Error:', error)
+    return NextResponse.json(
+      { error: 'Failed to process chat request' },
+      { status: 500 }
+    )
   }
 }
