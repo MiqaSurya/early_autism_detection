@@ -1,12 +1,10 @@
 import { Search, Home, ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 
 export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
-      <Card className="max-w-md w-full bg-white shadow-lg p-8 text-center">
+      <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
         <div className="mb-6">
           <Search className="h-16 w-16 text-blue-600 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-blue-900 mb-2">
@@ -22,20 +20,19 @@ export default function NotFoundPage() {
 
         <div className="space-y-3">
           <Link href="/dashboard" className="block">
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center">
               <Home className="h-4 w-4 mr-2" />
               Go to Dashboard
-            </Button>
+            </button>
           </Link>
-          
-          <Button 
-            onClick={() => window.history.back()} 
-            variant="outline" 
-            className="w-full"
+
+          <button
+            onClick={() => window.history.back()}
+            className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center justify-center"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Go Back
-          </Button>
+          </button>
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
@@ -60,7 +57,7 @@ export default function NotFoundPage() {
             </Link>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

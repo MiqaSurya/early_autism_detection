@@ -2,9 +2,6 @@
 
 import { useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Home, Mail } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { logger } from '@/lib/logger'
 
 interface ErrorPageProps {
   error: Error & { digest?: string }
@@ -13,15 +10,10 @@ interface ErrorPageProps {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    // Log the error for monitoring
-    logger.error('Application error', error, {
-      component: 'ErrorPage',
-      metadata: {
-        digest: error.digest,
-        message: error.message,
-        stack: error.stack,
-      },
-    })
+    // Log the error for monitoring in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Application error:', error)
+    }
   }, [error])
 
   const handleReload = () => {
@@ -50,7 +42,7 @@ Please describe what you were doing when this error occurred:
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-6">
-      <Card className="max-w-md w-full bg-white shadow-lg p-8 text-center">
+      <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
         <div className="mb-6">
           <AlertTriangle className="h-16 w-16 text-red-600 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-red-900 mb-2">

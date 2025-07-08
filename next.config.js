@@ -31,6 +31,9 @@ const nextConfig = {
   // Output configuration
   output: 'standalone',
 
+  // Static generation configuration
+  staticPageGenerationTimeout: 60,
+
   // Caching configuration
   async rewrites() {
     return [
