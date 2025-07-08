@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { AutismCenter } from '@/types/location'
+import { NavigationRoute } from '@/lib/navigation'
 
 // Dynamic import for the map component to avoid SSR issues
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
@@ -28,7 +29,7 @@ function SimpleRoutePreview({
 }: {
   userLocation: [number, number] | null
   destination: AutismCenter
-  route: any | null
+  route: NavigationRoute | null
   className?: string
 }) {
   return (
@@ -82,7 +83,7 @@ function SimpleRoutePreview({
 interface RoutePreviewMapProps {
   userLocation: [number, number] | null
   destination: AutismCenter
-  route: any | null
+  route: NavigationRoute | null
   className?: string
 }
 
@@ -102,7 +103,8 @@ export default function RoutePreviewMap({
     route: route ? {
       summary: route.summary,
       distance: route.totalDistance,
-      duration: route.totalDuration
+      duration: route.totalDuration,
+      coordinates: route.coordinates?.length
     } : null
   })
 

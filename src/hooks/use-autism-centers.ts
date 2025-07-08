@@ -59,7 +59,7 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
         if (response.ok) {
           const data = await response.json()
           setCenters(data)
-          return
+          return data // Return the fetched data
         }
       } catch (apiError) {
         console.log('Autism centers API not available, using mock data')
@@ -131,15 +131,17 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
       }
 
       setCenters(mockCenters)
+      return mockCenters // Return the mock centers
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
-      
+
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to load autism centers. Please try again.',
       })
+      throw err // Re-throw the error so the caller can handle it
     } finally {
       setLoading(false)
     }

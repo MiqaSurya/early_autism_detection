@@ -1,453 +1,422 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { AutismCenter } from '@/types/location'
+import { logger } from '@/lib/logger'
 
-// Fix for default markers in React Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-})
+// Leaflet setup (only on client side)
+let L: any = null
+let MapContainer: any = null
+let TileLayer: any = null
+let Marker: any = null
+let Polyline: any = null
+let useMap: any = null
 
+if (typeof window !== 'undefined') {
+  try {
+    L = require('leaflet')
+    require('leaflet/dist/leaflet.css')
 
+    const ReactLeaflet = require('react-leaflet')
+    MapContainer = ReactLeaflet.MapContainer
+    TileLayer = ReactLeaflet.TileLayer
+    Marker = ReactLeaflet.Marker
+    Polyline = ReactLeaflet.Polyline
+    useMap = ReactLeaflet.useMap
 
-interface GeoapifyMapProps {
-  centers: AutismCenter[]
-  userLocation?: [number, number]
-  onCenterSelect?: (center: AutismCenter) => void
-  className?: string
-  zoom?: number
-  center?: [number, number] // Optional center override
-  route?: {
-    coordinates: [number, number][] // [longitude, latitude] pairs from routing API
-    summary?: string
+    // Fix for default markers in React Leaflet
+    if (L && L.Icon && L.Icon.Default) {
+      delete (L.Icon.Default.prototype as any)._getIconUrl
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      })
+    }
+
+    // Suppress deprecation warnings for Mozilla-specific properties
+    const originalConsoleWarn = console.warn
+    console.warn = function(...args) {
+      const message = args.join(' ')
+      if (message.includes('mozPressure') || message.includes('mozInputSource')) {
+        return // Suppress these specific warnings
+      }
+      originalConsoleWarn.apply(console, args)
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      logger.warn('Failed to load Leaflet', { component: 'GeoapifyMap' })
+    }
   }
-  showRoute?: boolean
 }
 
-// Custom marker icons for different center types
-const createCustomIcon = (type: string | undefined, isSelected: boolean = false) => {
-  // Provide a default type if undefined
-  const safeType = type || 'default'
-
-  const colors = {
-    diagnostic: isSelected ? '#dc2626' : '#ef4444',
-    therapy: isSelected ? '#059669' : '#10b981',
-    support: isSelected ? '#7c3aed' : '#8b5cf6',
-    education: isSelected ? '#ea580c' : '#f97316',
-    default: isSelected ? '#1f2937' : '#6b7280'
+interface GeoapifyMapProps {
+  centers?: AutismCenter[]
+  userLocation?: [number, number]
+  selectedLocation?: any
+  onCenterSelect?: (center: any) => void
+  onClick?: (latlng: { lat: number; lng: number }) => void
+  route?: {
+    coordinates: [number, number][]
+    summary?: any
   }
+  showRoute?: boolean
+  className?: string
+  zoom?: number
+  center?: [number, number]
+}
 
-  const color = colors[safeType as keyof typeof colors] || colors.default
+// Helper function to validate coordinates
+function isValidCoordinate(coord: [number, number] | undefined | null): coord is [number, number] {
+  if (!coord || !Array.isArray(coord) || coord.length !== 2) return false
+  const [lat, lon] = coord
+  return typeof lat === 'number' && typeof lon === 'number' && 
+         lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
+         !isNaN(lat) && !isNaN(lon)
+}
 
-  // Get the first letter, with fallback
-  const iconLetter = safeType && safeType.length > 0 ? safeType.charAt(0).toUpperCase() : 'C'
-
+// Create custom icons
+function createUserLocationIcon() {
+  if (!L) return null
   return L.divIcon({
     html: `
       <div style="
-        background-color: ${color};
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        background: #3b82f6;
         border: 3px solid white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        color: white;
-        font-weight: bold;
+        border-radius: 50%;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        position: relative;
       ">
-        ${iconLetter}
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 8px;
+          height: 8px;
+          background: white;
+          border-radius: 50%;
+        "></div>
       </div>
     `,
-    className: 'custom-div-icon',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12]
+    className: 'user-location-marker',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
   })
 }
 
-// User location marker
-const createUserLocationIcon = () => {
+function createCenterIcon(center: AutismCenter) {
+  if (!L) return null
+  
+  // Color based on center type
+  const getColor = (type: string) => {
+    switch (type) {
+      case 'diagnostic': return '#ef4444' // red
+      case 'therapy': return '#10b981' // green  
+      case 'support': return '#f59e0b' // amber
+      case 'education': return '#8b5cf6' // purple
+      default: return '#6b7280' // gray
+    }
+  }
+
+  const color = getColor(center.type || 'general')
+  
   return L.divIcon({
     html: `
       <div style="
-        background-color: #3b82f6;
-        width: 16px;
-        height: 16px;
+        width: 24px;
+        height: 24px;
+        background: ${color};
+        border: 2px solid white;
         border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-        animation: pulse 2s infinite;
-      "></div>
-      <style>
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-      </style>
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+      ">
+        🏥
+      </div>
     `,
-    className: 'user-location-icon',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    className: 'center-marker',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
   })
 }
 
 // Component to handle map updates
-function MapUpdater({ center, zoom }: { center: [number, number], zoom: number }) {
+function MapController({
+  userLocation,
+  centers,
+  route
+}: {
+  userLocation?: [number, number]
+  centers?: AutismCenter[]
+  route?: { coordinates: [number, number][] }
+}) {
   const map = useMap()
-  
+
   useEffect(() => {
-    map.setView(center, zoom)
-  }, [map, center, zoom])
-  
+    if (!map) return
+
+    // Simple initialization without complex bounds fitting
+    if (userLocation && isValidCoordinate(userLocation)) {
+      map.setView(userLocation, 12)
+    } else {
+      // Default to KL
+      map.setView([3.1390, 101.6869], 12)
+    }
+  }, [map, userLocation])
+
+  return null
+}
+
+// Component to handle map clicks
+function MapClickHandler({ onClick }: { onClick?: (latlng: { lat: number; lng: number }) => void }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map || !onClick) return
+
+    const handleClick = (e: any) => {
+      onClick({ lat: e.latlng.lat, lng: e.latlng.lng })
+    }
+
+    map.on('click', handleClick)
+
+    return () => {
+      map.off('click', handleClick)
+    }
+  }, [map, onClick])
+
   return null
 }
 
 export default function GeoapifyMap({
-  centers,
+  centers = [],
   userLocation,
+  selectedLocation,
   onCenterSelect,
-  className = "h-96 w-full",
-  zoom = 13,
-  center,
+  onClick,
   route,
-  showRoute = true
+  showRoute = false,
+  className = "h-full w-full",
+  zoom = 12,
+  center
 }: GeoapifyMapProps) {
-  const [selectedCenter, setSelectedCenter] = useState<string | null>(null)
-  const [mapCenter, setMapCenter] = useState<[number, number]>(
-    center || userLocation || [3.1390, 101.6869] // Default to KL
+  const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
+
+  // Determine map center - memoize to prevent re-renders
+  const mapCenter: [number, number] = useMemo(() =>
+    center || userLocation || [3.1390, 101.6869],
+    [center, userLocation]
   )
 
-  useEffect(() => {
-    // Priority: center prop > userLocation > default
-    if (center) {
-      console.log('🗺️ GeoapifyMap centering on provided center:', center)
-      setMapCenter(center)
-    } else if (userLocation) {
-      console.log('🗺️ GeoapifyMap centering on user location:', userLocation)
-      setMapCenter(userLocation)
-    }
-  }, [center, userLocation])
-
-  const handleMarkerClick = (center: AutismCenter) => {
-    setSelectedCenter(center.id)
-    onCenterSelect?.(center)
-  }
-
-  const formatServices = (services?: string[]) => {
-    if (!services || services.length === 0) return 'Services not specified'
-    return services.join(', ')
-  }
-
-  const formatDistance = (distance?: number) => {
-    if (!distance) return ''
-    return distance < 1
-      ? `${(distance * 1000).toFixed(0)}m away`
-      : `${distance.toFixed(1)}km away`
-  }
-
-  // Convert route coordinates for Leaflet (swap lon/lat to lat/lon)
-  const routeCoordinates = (() => {
-    if (!route?.coordinates) return []
-
-    let coords = route.coordinates
-
-    // Handle LineString geometry format: coordinates is an array of [lon, lat] pairs
-    // If the first element is an array, it means we have the correct format
-    if (Array.isArray(coords) && coords.length > 0) {
-      // Check if this is already a flat array of coordinate pairs
-      if (Array.isArray(coords[0]) && coords[0].length === 2 && typeof coords[0][0] === 'number') {
-        // This is the correct format: [[lon, lat], [lon, lat], ...]
-        return coords
-          .filter(coord => {
-            if (!Array.isArray(coord) || coord.length < 2) return false
-            const [lon, lat] = coord
-            return typeof lat === 'number' && typeof lon === 'number' &&
-                   lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
-                   !isNaN(lat) && !isNaN(lon)
-          })
-          .map(coord => {
-            const [lon, lat] = coord
-            return [lat, lon] as [number, number] // Convert to [lat, lon] for Leaflet
-          })
-      }
-
-      // Handle nested LineString format: [[[lon, lat], [lon, lat], ...]]
-      if (Array.isArray(coords[0]) && Array.isArray((coords[0] as any)[0])) {
-        console.log('🔍 Detected nested LineString format, flattening...')
-        coords = coords[0] as unknown as [number, number][] // Take the first (and usually only) LineString
-      }
-
-      // Now process as flat coordinate array
-      return coords
-        .filter(coord => {
-          if (!Array.isArray(coord) || coord.length < 2) return false
-          const [lon, lat] = coord
-          return typeof lat === 'number' && typeof lon === 'number' &&
-                 lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 &&
-                 !isNaN(lat) && !isNaN(lon)
-        })
-        .map(coord => {
-          const [lon, lat] = coord
-          return [lat, lon] as [number, number] // Convert to [lat, lon] for Leaflet
-        })
+  // Convert route coordinates once and memoize
+  const convertedRouteCoords = useMemo(() => {
+    if (!showRoute || !route || !route.coordinates || route.coordinates.length === 0) {
+      return []
     }
 
-    return []
-  })()
-
-  // Debug route coordinates with more detail
-  useEffect(() => {
-    if (route) {
-      console.log('🗺️ GeoapifyMap route processing:', {
-        hasRoute: !!route,
-        showRoute,
-        originalCoordinatesCount: route?.coordinates?.length || 0,
-        validCoordinatesCount: routeCoordinates.length,
-        firstOriginal: route?.coordinates?.[0],
-        firstConverted: routeCoordinates[0],
-        lastOriginal: route?.coordinates?.[route.coordinates.length - 1],
-        lastConverted: routeCoordinates[routeCoordinates.length - 1],
-        summary: route?.summary
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('Converting route coordinates', {
+        component: 'GeoapifyMap',
+        metadata: {
+          total: route.coordinates.length,
+          sample: route.coordinates.slice(0, 3),
+          isNested: Array.isArray(route.coordinates[0]) && Array.isArray(route.coordinates[0][0])
+        }
       })
-
-      // Detailed analysis of coordinate format
-      if (route.coordinates && route.coordinates.length > 0) {
-        const firstCoord = route.coordinates[0]
-        console.log('🔍 Coordinate format analysis:', {
-          firstCoordinate: firstCoord,
-          coordinateType: typeof firstCoord,
-          isArray: Array.isArray(firstCoord),
-          length: firstCoord?.length,
-          firstElement: firstCoord?.[0],
-          secondElement: firstCoord?.[1],
-          thirdElement: (firstCoord as any)?.[2],
-          sampleCoordinates: route.coordinates.slice(0, 3)
-        })
-      }
-
-      if (route.coordinates && route.coordinates.length > 0 && routeCoordinates.length === 0) {
-        console.error('❌ Route coordinates were filtered out! Original coordinates:', route.coordinates.slice(0, 5))
-        console.error('❌ Coordinate format issue detected. First few coordinates:', route.coordinates.slice(0, 3))
-      }
     }
-  }, [route, routeCoordinates, showRoute])
+
+    // Handle nested coordinates structure from Geoapify GeoJSON
+    let flatCoordinates: [number, number][]
+
+    // Check if coordinates are nested (GeoJSON LineString format)
+    if (route.coordinates.length === 1 && Array.isArray(route.coordinates[0])) {
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug('Detected nested coordinates, flattening', { component: 'GeoapifyMap' })
+      }
+      flatCoordinates = route.coordinates[0] as [number, number][]
+    } else {
+      flatCoordinates = route.coordinates
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      logger.debug('Flattened coordinates', {
+        component: 'GeoapifyMap',
+        metadata: {
+          flatCount: flatCoordinates.length,
+          sample: flatCoordinates.slice(0, 3)
+        }
+      })
+    }
+
+    // Geoapify returns coordinates as [longitude, latitude], but Leaflet expects [latitude, longitude]
+    return flatCoordinates.map(coord => {
+      if (Array.isArray(coord) && coord.length >= 2) {
+        // Always assume Geoapify format: [lon, lat] -> [lat, lon]
+        return [coord[1], coord[0]] as [number, number]
+      }
+      return coord as [number, number]
+    })
+  }, [showRoute, route])
+
+  // Validate map center
+  if (!isValidCoordinate(mapCenter)) {
+    return (
+      <div className={`${className} bg-red-50 border border-red-200 rounded-lg flex items-center justify-center`}>
+        <div className="text-center p-4">
+          <div className="text-red-600 mb-2">⚠️</div>
+          <div className="text-sm text-red-700">Invalid map coordinates</div>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render on server side
+  if (typeof window === 'undefined' || !MapContainer) {
+    return (
+      <div className={`${className} bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center`}>
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-sm text-blue-700">Loading map...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (mapError) {
+    return (
+      <div className={`${className} bg-red-50 border border-red-200 rounded-lg flex items-center justify-center`}>
+        <div className="text-center p-4">
+          <div className="text-red-600 mb-2">⚠️</div>
+          <div className="text-sm text-red-700">{mapError}</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       <MapContainer
         center={mapCenter}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
-        className="rounded-lg"
+        className="geoapify-map"
+        zoomControl={true}
+        attributionControl={true}
+        whenReady={() => {
+          if (process.env.NODE_ENV === 'development') {
+            logger.info('Map created successfully', { component: 'GeoapifyMap' })
+          }
+          setMapLoaded(true)
+        }}
+        onError={(error: any) => {
+          logger.error('Map error', error, { component: 'GeoapifyMap' })
+          setMapError('Failed to load map')
+        }}
       >
         {/* Geoapify tile layer */}
         <TileLayer
           attribution='&copy; <a href="https://www.geoapify.com/">Geoapify</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={`https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`}
+          url={process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
+            ? `https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`
+            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          }
         />
-        
-        <MapUpdater center={mapCenter} zoom={zoom} />
 
-        {/* Route polyline - Road-following blue route */}
-        {showRoute && routeCoordinates.length > 0 && (
+        {/* Map controller for auto-fitting bounds */}
+        <MapController
+          userLocation={userLocation}
+          centers={centers}
+          route={route}
+        />
+
+        {/* Map click handler */}
+        <MapClickHandler onClick={onClick} />
+
+        {/* User location marker */}
+        {userLocation && isValidCoordinate(userLocation) && (
+          <Marker 
+            position={userLocation} 
+            icon={createUserLocationIcon()}
+          />
+        )}
+
+        {/* Center markers */}
+        {centers.map((center, index) => {
+          if (!center.latitude || !center.longitude) return null
+          
+          const position: [number, number] = [center.latitude, center.longitude]
+          if (!isValidCoordinate(position)) return null
+
+          return (
+            <Marker
+              key={center.id || index}
+              position={position}
+              icon={createCenterIcon(center)}
+              eventHandlers={{
+                click: () => {
+                  if (onCenterSelect) {
+                    onCenterSelect(center)
+                  }
+                }
+              }}
+            />
+          )
+        })}
+
+        {/* Route polyline */}
+        {convertedRouteCoords.length > 0 && (
           <>
-            {/* Debug: Log route data */}
-            {console.log('🛣️ Rendering road-following route:', {
-              showRoute,
-              coordinatesLength: routeCoordinates.length,
-              firstCoord: routeCoordinates[0],
-              lastCoord: routeCoordinates[routeCoordinates.length - 1],
-              routeFollowsRoads: routeCoordinates.length > 10 ? 'Yes' : 'Possibly straight line'
-            })}
+            {process.env.NODE_ENV === 'development' && (() => {
+              logger.debug('Rendering blue route', {
+                component: 'GeoapifyMap',
+                metadata: {
+                  coordinatesCount: convertedRouteCoords.length,
+                  firstCoord: convertedRouteCoords[0],
+                  lastCoord: convertedRouteCoords[convertedRouteCoords.length - 1]
+                }
+              })
+              return null
+            })()}
 
             {/* Route shadow for better visibility */}
             <Polyline
-              positions={routeCoordinates}
+              positions={convertedRouteCoords}
               pathOptions={{
                 color: "#000000",
                 weight: 8,
-                opacity: 0.4
+                opacity: 0.3
               }}
             />
 
-            {/* Main route line - Blue for navigation */}
+            {/* Main blue route line */}
             <Polyline
-              positions={routeCoordinates}
+              positions={convertedRouteCoords}
               pathOptions={{
-                color: "#0066ff",
-                weight: 6,
-                opacity: 1.0,
+                color: "#3b82f6",
+                weight: 5,
+                opacity: 0.9,
                 lineCap: "round",
                 lineJoin: "round"
               }}
             />
-
-            {/* Route highlight for extra visibility */}
-            <Polyline
-              positions={routeCoordinates}
-              pathOptions={{
-                color: "#ffffff",
-                weight: 2,
-                opacity: 0.7,
-                lineCap: "round",
-                lineJoin: "round",
-                dashArray: "5, 10"
-              }}
-            />
-
-            {console.log('✅ Road-following route rendered with', routeCoordinates.length, 'points')}
           </>
         )}
-
-        {/* Debug: Show when route should render but coordinates are empty */}
-        {showRoute && routeCoordinates.length === 0 && route && (
-          <>
-            {console.log('❌ showRoute=true but no coordinates:', {
-              showRoute,
-              route: route,
-              originalCoordinates: route.coordinates?.length,
-              filteredCoordinates: routeCoordinates.length
-            })}
-          </>
-        )}
-
-        {/* Debug: Show when route should render but doesn't */}
-        {showRoute && routeCoordinates.length === 0 && route && (
-          <>
-            {console.log('❌ Route data exists but no valid coordinates:', route)}
-          </>
-        )}
-
-        {/* User location marker */}
-        {userLocation && (
-          <Marker 
-            position={userLocation} 
-            icon={createUserLocationIcon()}
-          >
-            <Popup>
-              <div className="p-2">
-                <h3 className="font-semibold text-blue-600">Your Location</h3>
-                <p className="text-sm text-gray-600">
-                  Current position
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        )}
-
-        {/* Autism center markers */}
-        {centers.map((center) => (
-          <Marker
-            key={center.id}
-            position={[center.latitude, center.longitude]}
-            icon={createCustomIcon(center.type, selectedCenter === center.id)}
-            eventHandlers={{
-              click: () => handleMarkerClick(center)
-            }}
-          >
-            <Popup>
-              <div className="p-3 min-w-[250px]">
-                <h3 className="font-semibold text-lg mb-2">{center.name}</h3>
-                
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Type:</span>
-                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                      center.type === 'diagnostic' ? 'bg-red-100 text-red-800' :
-                      center.type === 'therapy' ? 'bg-green-100 text-green-800' :
-                      center.type === 'support' ? 'bg-purple-100 text-purple-800' :
-                      center.type === 'education' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {center.type.charAt(0).toUpperCase() + center.type.slice(1)}
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <span className="font-medium">Address:</span>
-                    <p className="text-gray-600">{center.address}</p>
-                  </div>
-                  
-                  {center.phone && (
-                    <div>
-                      <span className="font-medium">Phone:</span>
-                      <a 
-                        href={`tel:${center.phone}`}
-                        className="ml-2 text-blue-600 hover:underline"
-                      >
-                        {center.phone}
-                      </a>
-                    </div>
-                  )}
-                  
-                  {center.website && (
-                    <div>
-                      <span className="font-medium">Website:</span>
-                      <a 
-                        href={center.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 text-blue-600 hover:underline"
-                      >
-                        Visit Website
-                      </a>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <span className="font-medium">Services:</span>
-                    <p className="text-gray-600">{formatServices(center.services)}</p>
-                  </div>
-                  
-                  {center.distance && (
-                    <div className="text-blue-600 font-medium">
-                      📍 {formatDistance(center.distance)}
-                    </div>
-                  )}
-                  
-                  {center.description && (
-                    <div>
-                      <span className="font-medium">Description:</span>
-                      <p className="text-gray-600">{center.description}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="mt-3 pt-2 border-t flex gap-2">
-                  <button
-                    onClick={() => {
-                      const navigationUrl = `/dashboard/navigation?name=${encodeURIComponent(center.name)}&address=${encodeURIComponent(center.address)}&latitude=${center.latitude}&longitude=${center.longitude}&type=${center.type}${center.phone ? `&phone=${encodeURIComponent(center.phone)}` : ''}${center.id ? `&id=${center.id}` : ''}`
-                      window.location.href = navigationUrl
-                    }}
-                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Navigate
-                  </button>
-                  
-                  {center.phone && (
-                    <button
-                      onClick={() => window.open(`tel:${center.phone}`)}
-                      className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
-                    >
-                      Call
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
       </MapContainer>
+
+      {!mapLoaded && (
+        <div className="absolute top-4 right-4 bg-white px-3 py-2 rounded-lg shadow text-sm">
+          Loading map...
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { NavigationRoute } from '@/lib/navigation'
 
 // Leaflet setup (only on client side)
@@ -36,6 +36,7 @@ interface NavigationMapProps {
   destination: [number, number]
   route?: NavigationRoute
   currentStepIndex?: number
+  followUser?: boolean
   className?: string
   onLocationUpdate?: (location: [number, number]) => void
 }
@@ -131,10 +132,19 @@ function MapController({
     // Fit map to show route when route is loaded
     if (route && route.coordinates.length > 0) {
       try {
-        const validCoords = route.coordinates.filter(coord =>
-          coord.length === 2 &&
-          coord[1] >= -90 && coord[1] <= 90 &&
-          coord[0] >= -180 && coord[0] <= 180
+        // Handle nested coordinates structure from Geoapify GeoJSON
+        let flatCoordinates: [number, number][]
+
+        if (route.coordinates.length === 1 && Array.isArray(route.coordinates[0])) {
+          flatCoordinates = route.coordinates[0] as [number, number][]
+        } else {
+          flatCoordinates = route.coordinates
+        }
+
+        const validCoords = flatCoordinates.filter(coord =>
+          Array.isArray(coord) && coord.length === 2 &&
+          typeof coord[1] === 'number' && coord[1] >= -90 && coord[1] <= 90 &&
+          typeof coord[0] === 'number' && coord[0] >= -180 && coord[0] <= 180
         )
 
         if (validCoords.length > 0 && L) {
@@ -168,10 +178,11 @@ export default function NavigationMap({
   destination,
   route,
   currentStepIndex = 0,
+  followUser: followUserProp = true,
   className = "h-full w-full",
   onLocationUpdate
 }: NavigationMapProps) {
-  const [followUser, setFollowUser] = useState(true)
+  const [followUser, setFollowUser] = useState(followUserProp)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const watchIdRef = useRef<number | null>(null)
@@ -219,19 +230,71 @@ export default function NavigationMap({
   }, [onLocationUpdate])
 
   // Convert route coordinates for Leaflet (swap lon/lat) with validation
-  const routeCoordinates = route?.coordinates
-    .filter(coord => coord.length === 2 && coord[1] >= -90 && coord[1] <= 90 && coord[0] >= -180 && coord[0] <= 180)
-    .map(coord => [coord[1], coord[0]] as [number, number]) || []
+  const routeCoordinates = useMemo(() => {
+    if (!route?.coordinates) {
+      console.log('🧭 No route coordinates to convert')
+      return []
+    }
+
+    console.log('🧭 Converting route coordinates:', {
+      total: route.coordinates.length,
+      sample: route.coordinates.slice(0, 3),
+      isNested: Array.isArray(route.coordinates[0]) && Array.isArray(route.coordinates[0][0])
+    })
+
+    // Handle nested coordinates structure from Geoapify GeoJSON
+    let flatCoordinates: [number, number][]
+
+    // Check if coordinates are nested (GeoJSON LineString format)
+    if (route.coordinates.length === 1 && Array.isArray(route.coordinates[0])) {
+      console.log('🧭 Detected nested coordinates, flattening...')
+      flatCoordinates = route.coordinates[0] as [number, number][]
+    } else {
+      flatCoordinates = route.coordinates
+    }
+
+    console.log('🧭 Flattened coordinates:', {
+      flatCount: flatCoordinates.length,
+      sample: flatCoordinates.slice(0, 3)
+    })
+
+    const converted = flatCoordinates
+      .filter(coord => {
+        const isValid = Array.isArray(coord) && coord.length === 2 &&
+                       typeof coord[1] === 'number' && coord[1] >= -90 && coord[1] <= 90 &&
+                       typeof coord[0] === 'number' && coord[0] >= -180 && coord[0] <= 180
+        if (!isValid) {
+          console.warn('🧭 Invalid coordinate filtered out:', coord)
+        }
+        return isValid
+      })
+      .map(coord => [coord[1], coord[0]] as [number, number])
+
+    console.log('🧭 Converted coordinates:', {
+      originalCount: route.coordinates.length,
+      flatCount: flatCoordinates.length,
+      convertedCount: converted.length,
+      sample: converted.slice(0, 3)
+    })
+
+    return converted
+  }, [route?.coordinates])
 
   // Debug route coordinates
   useEffect(() => {
+    console.log('🧭 NavigationMap received route:', route)
     if (route) {
       console.log('🧭 NavigationMap route data:', {
+        hasRoute: !!route,
+        hasCoordinates: !!route.coordinates,
+        coordinatesLength: route.coordinates?.length,
         originalCoordinates: route.coordinates?.slice(0, 3),
         convertedCoordinates: routeCoordinates.slice(0, 3),
         totalPoints: route.coordinates?.length,
         summary: route.summary
       })
+    } else {
+      console.log('🧭 NavigationMap: No route provided')
     }
   }, [route, routeCoordinates])
 
@@ -317,7 +380,7 @@ export default function NavigationMap({
         />
 
         {/* Route polyline */}
-        {routeCoordinates.length > 0 && (
+        {routeCoordinates.length > 0 ? (
           <>
             {console.log('🧭 NavigationMap rendering route with', routeCoordinates.length, 'points')}
 
@@ -355,6 +418,11 @@ export default function NavigationMap({
                 dashArray: "5, 10"
               }}
             />
+          </>
+        ) : (
+          <>
+            {console.log('🧭 NavigationMap: No route coordinates to render')}
+            {route && console.log('🧭 Route exists but no coordinates:', route)}
           </>
         )}
 
@@ -398,7 +466,7 @@ export default function NavigationMap({
       </div>
 
       {/* Route info overlay */}
-      {route && (
+      {route && routeCoordinates.length > 0 && (
         <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border-l-4 border-blue-500">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
@@ -410,7 +478,19 @@ export default function NavigationMap({
             </span>
           </div>
           <div className="text-xs text-blue-600 mt-1">
-            🛣️ Follow the blue route to your destination
+            🛣️ Follow the blue route to your destination ({routeCoordinates.length} points)
+          </div>
+        </div>
+      )}
+
+      {/* Debug overlay when route exists but no coordinates */}
+      {route && routeCoordinates.length === 0 && (
+        <div className="absolute bottom-4 left-4 right-4 bg-red-100 border border-red-300 rounded-lg p-3 shadow-lg">
+          <div className="text-sm text-red-700">
+            ⚠️ Route calculated but no coordinates available
+          </div>
+          <div className="text-xs text-red-600 mt-1">
+            Route: {route.summary} | Original coords: {route.coordinates?.length || 0}
           </div>
         </div>
       )}

@@ -11,8 +11,8 @@ export async function testGeoapifyAPI(): Promise<void> {
   }
 
   try {
-    // Test with a simple search around KL
-    const testUrl = `https://api.geoapify.com/v2/places?categories=healthcare.psychology&filter=circle:101.6869,3.1390,5000&limit=5&apiKey=${GEOAPIFY_API_KEY}`
+    // Test with a simple search around KL using supported category
+    const testUrl = `https://api.geoapify.com/v2/places?categories=healthcare.hospital&filter=circle:101.6869,3.1390,5000&limit=5&apiKey=${GEOAPIFY_API_KEY}`
     console.log('🔍 Test URL:', testUrl)
 
     const response = await fetch(testUrl)
@@ -57,15 +57,14 @@ export interface POISearchOptions {
   countryCode?: string
 }
 
-// Healthcare categories relevant to autism centers
+// Healthcare categories relevant to autism centers (using only supported categories)
 export const HEALTHCARE_CATEGORIES = {
   HOSPITAL: 'healthcare.hospital',
   CLINIC: 'healthcare.clinic_or_praxis',
   PHARMACY: 'healthcare.pharmacy',
   DENTIST: 'healthcare.dentist',
-  PHYSIOTHERAPY: 'healthcare.physiotherapy',
-  PSYCHOLOGY: 'healthcare.psychology',
-  ALTERNATIVE_MEDICINE: 'healthcare.alternative',
+  // Note: healthcare.psychology and healthcare.physiotherapy are not in the supported list
+  // Using general healthcare category instead
   HEALTHCARE_GENERAL: 'healthcare'
 }
 
@@ -78,12 +77,18 @@ export const EDUCATION_CATEGORIES = {
   DRIVING_SCHOOL: 'education.driving_school'
 }
 
-// Community and support categories
+// Community and support categories (using only supported categories)
 export const COMMUNITY_CATEGORIES = {
-  COMMUNITY_CENTER: 'building.community_center',
-  SOCIAL_FACILITY: 'building.social_facility',
-  GOVERNMENT: 'building.government',
-  NGO: 'office.ngo'
+  COMMUNITY_CENTER: 'activity.community_center',
+  SOCIAL_FACILITY: 'service.social_facility',
+  NGO: 'office.non_profit'
+}
+
+// Additional government and office categories that might have autism services
+export const ADDITIONAL_CATEGORIES = {
+  GOVERNMENT_HEALTHCARE: 'office.government.healthcare',
+  GOVERNMENT_SOCIAL_SERVICES: 'office.government.social_services',
+  EDUCATIONAL_INSTITUTION: 'office.educational_institution'
 }
 
 /**
@@ -204,7 +209,6 @@ export async function searchHealthcarePOI(
     categories: [
       HEALTHCARE_CATEGORIES.HOSPITAL,
       HEALTHCARE_CATEGORIES.CLINIC,
-      HEALTHCARE_CATEGORIES.PSYCHOLOGY,
       HEALTHCARE_CATEGORIES.HEALTHCARE_GENERAL
     ],
     radius,
@@ -231,11 +235,9 @@ export async function searchAutismRelatedPOI(
       return []
     }
 
-    // Search multiple categories to find autism centers - cast a wider net initially
+    // Search multiple categories to find autism centers - using only supported categories
     const searchPromises = [
-      // Psychology centers (most likely to have autism services)
-      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.PSYCHOLOGY, radius, limit),
-      // General healthcare facilities
+      // General healthcare facilities (most comprehensive)
       searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.HEALTHCARE_GENERAL, radius, limit),
       // Clinics and medical practices
       searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.CLINIC, radius, limit),
@@ -246,9 +248,7 @@ export async function searchAutismRelatedPOI(
       // Community centers (may offer autism support)
       searchPOIByCategory(latitude, longitude, COMMUNITY_CATEGORIES.COMMUNITY_CENTER, radius, Math.floor(limit/3)),
       // Social facilities (may include autism support services)
-      searchPOIByCategory(latitude, longitude, COMMUNITY_CATEGORIES.SOCIAL_FACILITY, radius, Math.floor(limit/4)),
-      // Alternative medicine (may include autism therapies)
-      searchPOIByCategory(latitude, longitude, HEALTHCARE_CATEGORIES.ALTERNATIVE_MEDICINE, radius, Math.floor(limit/4))
+      searchPOIByCategory(latitude, longitude, COMMUNITY_CATEGORIES.SOCIAL_FACILITY, radius, Math.floor(limit/4))
     ]
 
     // Execute all searches in parallel for faster results
@@ -258,7 +258,7 @@ export async function searchAutismRelatedPOI(
     let allPlaces: POIPlace[] = []
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
-        const categoryName = ['Psychology', 'Healthcare', 'Clinics', 'Hospitals', 'Schools', 'Community Centers', 'Social Facilities', 'Alternative Medicine'][index]
+        const categoryName = ['Healthcare', 'Clinics', 'Hospitals', 'Schools', 'Community Centers', 'Social Facilities'][index]
         console.log(`✅ Found ${result.value.length} ${categoryName} facilities`)
         allPlaces = [...allPlaces, ...result.value]
       } else {
@@ -485,7 +485,7 @@ export async function getNearbyPlaces(
   const categories = [
     { name: 'Hospitals', category: HEALTHCARE_CATEGORIES.HOSPITAL },
     { name: 'Clinics', category: HEALTHCARE_CATEGORIES.CLINIC },
-    { name: 'Psychology Centers', category: HEALTHCARE_CATEGORIES.PSYCHOLOGY },
+    { name: 'Healthcare General', category: HEALTHCARE_CATEGORIES.HEALTHCARE_GENERAL },
     { name: 'Schools', category: EDUCATION_CATEGORIES.SCHOOL },
     { name: 'Community Centers', category: COMMUNITY_CATEGORIES.COMMUNITY_CENTER }
   ]
@@ -562,13 +562,16 @@ export function getCategoryDisplayName(category: string): string {
   const categoryMap: { [key: string]: string } = {
     'healthcare.hospital': 'Hospital',
     'healthcare.clinic_or_praxis': 'Clinic',
-    'healthcare.psychology': 'Psychology Center',
+    'healthcare': 'Healthcare Facility',
     'healthcare.pharmacy': 'Pharmacy',
     'education.school': 'School',
     'education.university': 'University',
-    'building.community_center': 'Community Center',
-    'building.social_facility': 'Social Facility',
-    'office.ngo': 'NGO'
+    'activity.community_center': 'Community Center',
+    'service.social_facility': 'Social Facility',
+    'office.non_profit': 'NGO',
+    'office.government.healthcare': 'Government Healthcare',
+    'office.government.social_services': 'Government Social Services',
+    'office.educational_institution': 'Educational Institution'
   }
   
   return categoryMap[category] || category.split('.').pop()?.replace('_', ' ') || 'Unknown'

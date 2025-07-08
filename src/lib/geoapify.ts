@@ -128,21 +128,53 @@ export async function getAutocompleteSuggestions(
   }
 
   try {
+    console.log('🔍 Autocomplete search for:', text)
     const encodedText = encodeURIComponent(text)
     let url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodedText}&apiKey=${GEOAPIFY_API_KEY}`
-    
+
     if (bias) {
       url += `&bias=proximity:${bias.lon},${bias.lat}`
     }
-    
+
+    console.log('🌐 Autocomplete URL:', url)
     const response = await fetch(url)
-    
+    console.log('📡 Autocomplete response:', response.status, response.statusText)
+
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Autocomplete API Error:', errorText)
       throw new Error(`Autocomplete failed: ${response.status} ${response.statusText}`)
     }
-    
-    const data: GeoapifyGeocodingResponse = await response.json()
-    return data.results || []
+
+    const data = await response.json()
+    console.log('📋 Autocomplete data:', data)
+
+    // The autocomplete API returns features, not results
+    const features = data.features || []
+
+    // Convert features to GeoapifyPlace format
+    const places: GeoapifyPlace[] = features.map((feature: any) => {
+      const coords = feature.geometry.coordinates // [lon, lat]
+      const props = feature.properties
+
+      return {
+        place_id: feature.properties.place_id || `${coords[1]}-${coords[0]}`,
+        display_name: props.formatted || props.address_line1 || text,
+        lat: coords[1],
+        lon: coords[0],
+        address: {
+          house_number: props.housenumber,
+          road: props.street,
+          city: props.city,
+          state: props.state,
+          postcode: props.postcode,
+          country: props.country
+        }
+      }
+    })
+
+    console.log('✅ Converted places:', places)
+    return places
   } catch (error) {
     console.error('Autocomplete error:', error)
     return []
@@ -314,16 +346,16 @@ function createLocationError(error: GeolocationPositionError): Error {
 
   switch (error.code) {
     case 1: // PERMISSION_DENIED
-      message = 'Location access denied. Please enable location services in your browser settings and try again.'
+      message = 'Location access denied. Please click the location icon in your browser\'s address bar and allow location access, then try again.'
       break
     case 2: // POSITION_UNAVAILABLE
-      message = 'Location information is unavailable. Please check your internet connection and try again.'
+      message = 'Location information is unavailable. This can happen due to poor GPS signal, being indoors, or network issues. Try moving to an area with better signal or near a window.'
       break
     case 3: // TIMEOUT
-      message = 'Location request timed out. This may happen indoors or in areas with poor GPS signal. Please try again or move to an area with better signal.'
+      message = 'Location request timed out. This often happens indoors or in areas with poor GPS signal. Try moving to an area with better signal or near a window.'
       break
     default:
-      message = 'Unable to get your location. Please try again or enter your address manually.'
+      message = 'Unable to get your location. This may be due to browser settings or device limitations.'
   }
 
   const customError = new Error(message)

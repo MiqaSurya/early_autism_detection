@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { ServiceCard } from '@/components/dashboard/service-card'
 import { ClipboardList, MessageCircle, MapPin, LogOut, User, Heart, Brain, Users, BookOpen, Lightbulb, Shield } from 'lucide-react'
 import { signOut } from '@/lib/supabase'
-import EmergencyNearestCenter from '@/components/dashboard/EmergencyNearestCenter'
+// import EmergencyNearestCenter from '@/components/dashboard/EmergencyNearestCenter'
 import { Logo } from '@/components/ui/logo'
 
 export default function DashboardPage() {
@@ -167,13 +167,13 @@ export default function DashboardPage() {
           </motion.div>
         </motion.div>
 
-        {/* Emergency Nearest Center */}
-        <motion.div
+        {/* Emergency Nearest Center - Temporarily disabled */}
+        {/* <motion.div
           className="mb-12"
           variants={itemVariants}
         >
           <EmergencyNearestCenter />
-        </motion.div>
+        </motion.div> */}
 
         {/* About Autism Information Section */}
         <motion.div

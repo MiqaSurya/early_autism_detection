@@ -4,10 +4,10 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Route, Clock, MapPin, Navigation } from 'lucide-react'
-import RoutePreviewMap from '@/components/navigation/RoutePreviewMap'
+import NavigationMap from '@/components/navigation/NavigationMap'
 import { AutismCenter } from '@/types/location'
 import { parseDestinationFromParams } from '@/lib/navigation-utils'
-import { calculateRoute } from '@/lib/routing'
+import { getDirections, NavigationRoute } from '@/lib/navigation'
 import { getCurrentLocation } from '@/lib/geoapify'
 
 export default function NavigationPage() {
@@ -15,7 +15,7 @@ export default function NavigationPage() {
   const router = useRouter()
   const [destination, setDestination] = useState<AutismCenter | null>(null)
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
-  const [previewRoute, setPreviewRoute] = useState<any>(null)
+  const [previewRoute, setPreviewRoute] = useState<NavigationRoute | null>(null)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -73,11 +73,11 @@ export default function NavigationPage() {
         lon: dest.longitude
       })
 
-      // Calculate route using the same method as in locator
-      const route = await calculateRoute(
-        { latitude: location.lat, longitude: location.lon },
-        { latitude: dest.latitude, longitude: dest.longitude },
-        { mode: 'drive' }
+      // Calculate route using navigation service for proper NavigationRoute format
+      const route = await getDirections(
+        { lat: location.lat, lon: location.lon },
+        { lat: dest.latitude, lon: dest.longitude },
+        'drive'
       )
 
       console.log('🔍 Route calculation result:', route)
@@ -309,14 +309,30 @@ export default function NavigationPage() {
       {/* Navigation Content */}
       <div className="flex-1 flex flex-col">
         <>
-            {/* Route Preview Map */}
+            {/* Navigation Map with Blue Route */}
             <div className="flex-1 p-4">
-              <RoutePreviewMap
-                userLocation={userLocation}
-                destination={destination}
-                route={previewRoute}
-                className="h-full min-h-[400px]"
-              />
+              {userLocation && previewRoute && (
+                <NavigationMap
+                  userLocation={userLocation}
+                  destination={[destination.latitude, destination.longitude]}
+                  route={previewRoute}
+                  followUser={false}
+                  className="h-full min-h-[400px] rounded-lg border"
+                />
+              )}
+
+              {(!userLocation || !previewRoute) && (
+                <div className="h-full min-h-[400px] bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border-2 border-blue-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-3 mx-auto">
+                      <span className="text-white text-xl">🗺️</span>
+                    </div>
+                    <span className="text-blue-700">
+                      {!userLocation ? 'Getting your location...' : 'Calculating route...'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Debug Info */}
               {process.env.NODE_ENV === 'development' && (

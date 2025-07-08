@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { withRateLimit, checkExternalApiLimit } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 // System message for the AI assistant
 const SYSTEM_MESSAGE = `You are an autism information specialist providing accurate, research-based information about autism spectrum disorder (ASD). Your role is to:
@@ -70,24 +72,40 @@ async function queryDeepSeekModel(messages: any[]) {
   return result.choices[0]?.message?.content || 'I apologize, but I couldn\'t generate a response.';
 }
 
-export async function POST(req: Request) {
+// Apply rate limiting to the POST handler
+const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
   try {
     const supabase = createRouteHandlerClient({ cookies })
-    
+
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession()
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check external API rate limit
+    const canCallExternalApi = await checkExternalApiLimit('deepseek', session.user.id)
+    if (!canCallExternalApi) {
+      return NextResponse.json(
+        { error: 'External API rate limit exceeded. Please try again later.' },
+        { status: 429 }
+      )
+    }
+
     const { messages } = await req.json()
-    
-    console.log('Processing request with DeepSeek API...');
+
+    logger.info('Processing chat request', {
+      userId: session.user.id,
+      component: 'chat-api',
+    })
     try {
       // Get response from the DeepSeek model
       const aiResponse = await queryDeepSeekModel(messages);
-      console.log('Received response from DeepSeek');
+      logger.info('Received response from DeepSeek', {
+        userId: session.user.id,
+        component: 'chat-api',
+      })
 
       // Save the chat interaction to Supabase for future reference
       try {
@@ -98,7 +116,10 @@ export async function POST(req: Request) {
           timestamp: new Date().toISOString()
         })
       } catch (dbError) {
-        console.error('Failed to save chat history:', dbError)
+        logger.error('Failed to save chat history', dbError as Error, {
+          userId: session.user.id,
+          component: 'chat-api',
+        })
         // Continue even if saving fails
       }
 
@@ -108,15 +129,23 @@ export async function POST(req: Request) {
       })
 
     } catch (apiError) {
-      console.error('DeepSeek API Error:', apiError);
+      logger.error('DeepSeek API Error', apiError as Error, {
+        userId: session.user.id,
+        component: 'chat-api',
+      })
       throw apiError;
     }
 
   } catch (error) {
-    console.error('Chat API Error:', error)
+    logger.error('Chat API Error', error as Error, {
+      component: 'chat-api',
+    })
     return NextResponse.json(
       { error: 'Failed to process chat request' },
       { status: 500 }
     )
   }
-}
+})
+
+// Export the rate-limited handler
+export const POST = rateLimitedPOST

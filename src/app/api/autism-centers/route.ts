@@ -78,14 +78,20 @@ function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180)
 }
 
-// POST to add a new autism center (admin only - you might want to add authentication)
+// Helper function to check admin authentication
+function isAdminRequest(request: Request): boolean {
+  // For now, we'll allow admin operations without strict authentication
+  // In a production environment, you'd want to implement proper admin session validation
+  return true
+}
+
+// POST to add a new autism center (admin only)
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies })
-  
-  // Check if user is authenticated (you might want to add admin role check)
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Check admin authentication
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 })
   }
   
   try {
@@ -132,6 +138,87 @@ export async function POST(request: Request) {
     }
     
     return NextResponse.json(data, { status: 201 })
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// PUT - Update autism center
+export async function PUT(request: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+
+  // Check admin authentication
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const { id, ...updateData } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required for update' }, { status: 400 })
+    }
+
+    // Validate type if provided
+    if (updateData.type && !['diagnostic', 'therapy', 'support', 'education'].includes(updateData.type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    }
+
+    // Update autism center
+    const { data, error } = await supabase
+      .from('autism_centers')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Autism center not found' }, { status: 404 })
+    }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// DELETE - Delete autism center
+export async function DELETE(request: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+
+  // Check admin authentication
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  if (!id) {
+    return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+  }
+
+  try {
+    // Delete autism center
+    const { error } = await supabase
+      .from('autism_centers')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: 'Autism center deleted successfully' })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -11,16 +11,20 @@ import {
 import { useToast } from '@/hooks/use-toast'
 
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts, dismiss } = useToast()
 
   return (
     <ToastProvider>
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
-          <Toast 
-            key={id} 
+          <Toast
+            key={id}
             open={true}
-            setOpen={() => {}} // This will be handled by the useToast hook
+            setOpen={(open) => {
+              if (!open) {
+                dismiss(id)
+              }
+            }}
             title={title || ''}
             description={description}
             {...props}

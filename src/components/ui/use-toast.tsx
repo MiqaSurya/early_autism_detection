@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, toast, dismiss }}>
       {children}
       {toasts.length > 0 && (
-        <div className="fixed bottom-0 right-0 p-4 space-y-4 z-50">
+        <div className="fixed bottom-4 right-4 p-4 space-y-4 z-40">
           {toasts.map((toast) => (
             <div
               key={toast.id}
@@ -54,10 +54,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   {toast.description && <p className="text-sm mt-1">{toast.description}</p>}
                 </div>
                 <button
-                  onClick={() => dismiss(toast.id)}
-                  className="text-gray-400 hover:text-gray-500"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    dismiss(toast.id)
+                  }}
+                  className="text-gray-400 hover:text-gray-500 ml-2 flex-shrink-0 cursor-pointer"
+                  type="button"
+                  aria-label="Close notification"
                 >
-                  &times;
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
                 </button>
               </div>
             </div>

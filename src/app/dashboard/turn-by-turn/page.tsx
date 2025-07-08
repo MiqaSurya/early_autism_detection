@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Navigation, Route, Clock, MapPin } from 'lucide-react'
 import { AutismCenter } from '@/types/location'
 import { parseDestinationFromParams } from '@/lib/navigation-utils'
-import { calculateRoute } from '@/lib/routing'
+import { getDirections, NavigationRoute } from '@/lib/navigation'
 import { getCurrentLocation } from '@/lib/geoapify'
 import dynamic from 'next/dynamic'
 
-// Dynamic import for the map component to avoid SSR issues
-const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
+// Dynamic import for the navigation map component to avoid SSR issues
+const NavigationMap = dynamic(() => import('@/components/navigation/NavigationMap'), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -30,7 +30,7 @@ export default function TurnByTurnNavigationPage() {
   const router = useRouter()
   const [destination, setDestination] = useState<AutismCenter | null>(null)
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
-  const [route, setRoute] = useState<any>(null)
+  const [route, setRoute] = useState<NavigationRoute | null>(null)
   const [routeLoading, setRouteLoading] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -60,15 +60,40 @@ export default function TurnByTurnNavigationPage() {
     setLocationError(null)
 
     try {
-      // Get user location with high accuracy for navigation
+      // Get user location with multiple fallback strategies
       console.log('📍 Getting user location for turn-by-turn navigation...')
-      const location = await getCurrentLocation({
-        timeout: 20000, // Longer timeout for navigation
-        enableHighAccuracy: true,
-        maximumAge: 30000, // 30 seconds cache for navigation
-        retries: 3 // More retries for navigation
-      })
-      console.log('📍 User location obtained for navigation:', location)
+
+      let location
+      try {
+        location = await getCurrentLocation({
+          timeout: 20000, // Longer timeout for navigation
+          enableHighAccuracy: true,
+          maximumAge: 30000, // 30 seconds cache for navigation
+          retries: 3 // More retries for navigation
+        })
+        console.log('📍 User location obtained for navigation:', location)
+      } catch (locationError) {
+        console.log('⚠️ Primary location detection failed, trying fallback methods...')
+
+        // Try with lower accuracy and longer timeout
+        try {
+          location = await getCurrentLocation({
+            timeout: 30000, // Even longer timeout
+            enableHighAccuracy: false, // Lower accuracy
+            maximumAge: 300000, // 5 minute cache
+            retries: 2
+          })
+          console.log('📍 User location obtained with lower accuracy:', location)
+        } catch (fallbackError) {
+          console.log('⚠️ All location methods failed, using default KL location')
+          // Final fallback to Kuala Lumpur coordinates
+          location = { lat: 3.1390, lon: 101.6869 }
+          console.log('📍 Using default location (KL):', location)
+
+          // Show user that we're using default location
+          setLocationError('Unable to get your exact location. Using Kuala Lumpur as starting point. Navigation will work but may not show your actual position.')
+        }
+      }
 
       const userPos: [number, number] = [location.lat, location.lon]
       setUserLocation(userPos)
@@ -84,11 +109,11 @@ export default function TurnByTurnNavigationPage() {
         lon: dest.longitude
       })
 
-      // Calculate route for navigation
-      const navigationRoute = await calculateRoute(
-        { latitude: location.lat, longitude: location.lon },
-        { latitude: dest.latitude, longitude: dest.longitude },
-        { mode: 'drive' }
+      // Calculate route for navigation using proper NavigationRoute format
+      const navigationRoute = await getDirections(
+        { lat: location.lat, lon: location.lon },
+        { lat: dest.latitude, lon: dest.longitude },
+        'drive'
       )
 
       console.log('🔍 Turn-by-turn navigation route result:', navigationRoute)
@@ -131,13 +156,16 @@ export default function TurnByTurnNavigationPage() {
     console.log('🔄 Starting live location tracking for navigation')
     setIsTracking(true)
 
+    let consecutiveFailures = 0
+    const maxFailures = 3
+
     const trackingInterval = setInterval(async () => {
       try {
         const location = await getCurrentLocation({
-          timeout: 10000,
+          timeout: 8000, // Shorter timeout for live tracking
           enableHighAccuracy: true,
-          maximumAge: 5000, // 5 seconds cache for live tracking
-          retries: 1
+          maximumAge: 3000, // 3 seconds cache for live tracking
+          retries: 1 // Single retry for live tracking
         })
 
         const newPosition: [number, number] = [location.lat, location.lon]
@@ -145,9 +173,32 @@ export default function TurnByTurnNavigationPage() {
 
         setUserLocation(newPosition)
         setMapCenter(newPosition) // Keep map centered on user
+        consecutiveFailures = 0 // Reset failure counter on success
       } catch (error) {
-        console.log('📍 Live tracking update failed:', error)
-        // Don't stop tracking on single failure
+        consecutiveFailures++
+        console.log(`📍 Live tracking update failed (${consecutiveFailures}/${maxFailures}):`, error)
+
+        // If too many consecutive failures, try with lower accuracy
+        if (consecutiveFailures >= maxFailures) {
+          console.log('⚠️ Too many location failures, trying lower accuracy mode...')
+          try {
+            const location = await getCurrentLocation({
+              timeout: 15000,
+              enableHighAccuracy: false, // Lower accuracy
+              maximumAge: 10000, // 10 seconds cache
+              retries: 1
+            })
+
+            const newPosition: [number, number] = [location.lat, location.lon]
+            console.log('📍 Live location update (low accuracy):', newPosition)
+            setUserLocation(newPosition)
+            setMapCenter(newPosition)
+            consecutiveFailures = 0 // Reset on success
+          } catch (lowAccuracyError) {
+            console.log('📍 Low accuracy tracking also failed, continuing with last known position')
+            // Continue tracking but don't update position
+          }
+        }
       }
     }, 10000) // Update every 10 seconds
 
@@ -258,11 +309,49 @@ export default function TurnByTurnNavigationPage() {
           </div>
         )}
 
+        {locationError && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <div className="flex-1">
+                <span className="text-orange-800 text-sm">
+                  ⚠️ {locationError}
+                </span>
+                <div className="text-xs text-orange-600 mt-1">
+                  Navigation will still work, but may not show your exact position.
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleRetryNavigation}
+                size="sm"
+                variant="outline"
+                className="text-orange-700 border-orange-300 hover:bg-orange-100"
+              >
+                🔄 Try Again
+              </Button>
+              <Button
+                onClick={() => {
+                  // Use current location (KL default) and continue
+                  setLocationError(null)
+                }}
+                size="sm"
+                variant="outline"
+                className="text-blue-700 border-blue-300 hover:bg-blue-100"
+              >
+                📍 Continue with Default Location
+              </Button>
+            </div>
+          </div>
+        )}
+
         {userLocation && !locationLoading && (
           <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
             <div className={`w-3 h-3 bg-green-500 rounded-full ${isTracking ? 'animate-pulse' : ''}`}></div>
             <span className="text-green-800 text-sm">
               📍 {isTracking ? 'Live tracking:' : 'Location:'} {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+              {locationError && ' (Default location)'}
             </span>
             {isTracking && (
               <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
@@ -330,31 +419,13 @@ export default function TurnByTurnNavigationPage() {
 
       {/* Full Screen Navigation Map */}
       <div className="flex-1 relative">
-        {destination && (
-          <GeoapifyMap
-            centers={[{
-              id: destination.id || 'destination',
-              name: destination.name,
-              type: destination.type || 'diagnostic',
-              address: destination.address,
-              latitude: destination.latitude,
-              longitude: destination.longitude,
-              phone: destination.phone,
-              description: destination.description,
-              verified: destination.verified || true,
-              created_at: destination.created_at || new Date().toISOString(),
-              updated_at: destination.updated_at || new Date().toISOString()
-            }]}
-            userLocation={userLocation || undefined}
-            onCenterSelect={() => {}} // No selection needed for navigation
-            route={route ? {
-              coordinates: route.coordinates,
-              summary: route.summary
-            } : undefined}
-            showRoute={!!route}
+        {destination && userLocation && (
+          <NavigationMap
+            userLocation={userLocation}
+            destination={[destination.latitude, destination.longitude]}
+            route={route || undefined}
+            followUser={true}
             className="h-full w-full"
-            zoom={userLocation ? 17 : 14} // Higher zoom for turn-by-turn navigation
-            center={mapCenter} // Center on user location or destination
           />
         )}
 

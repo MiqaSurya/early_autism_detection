@@ -21,8 +21,11 @@ import QuickNearestButton from './QuickNearestButton'
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
   ssr: false,
   loading: () => (
-    <div className="h-96 w-full bg-gray-200 rounded-lg flex items-center justify-center">
-      <span className="text-gray-500">Loading map...</span>
+    <div className="h-96 w-full bg-blue-50 rounded-lg flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+        <span className="text-blue-600 text-sm">Loading map...</span>
+      </div>
     </div>
   )
 })
@@ -41,6 +44,7 @@ export default function GeoapifyLocationFinder() {
   const { savedLocations, saveLocation, deleteLocation } = useSavedLocations()
   const [currentLocation, setCurrentLocation] = useState<[number, number]>([40.7589, -73.9851]) // Default to NYC
   const [selectedCenter, setSelectedCenter] = useState<AutismCenter | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lon: number; address: string } | null>(null)
   const [typeFilter, setTypeFilter] = useState<LocationType | 'all'>('all')
   const [radiusFilter, setRadiusFilter] = useState<number>(25)
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
@@ -69,10 +73,9 @@ export default function GeoapifyLocationFinder() {
     autoFetch: false
   })
 
-  // Get user location and fetch centers on mount
+  // Get user location and fetch centers on mount - optimized
   useEffect(() => {
-    // Test API connectivity first
-    testGeoapifyAPI()
+    // Skip API test for faster loading
     handleFindNearby()
   }, [])
 
@@ -120,6 +123,7 @@ export default function GeoapifyLocationFinder() {
   const handleFindNearby = async () => {
     setIsLocating(true)
     setLocationError(null)
+    setSelectedLocation(null) // Clear any previously selected location
 
     let finalLat = 3.1390 // Default KL coordinates
     let finalLon = 101.6869
@@ -155,31 +159,15 @@ export default function GeoapifyLocationFinder() {
       console.error('❌ Failed to load centers from database:', centerError)
     }
 
-    // Automatically search for all autism centers via POI API
-    setPOILoading(true)
-    try {
-      console.log('🔍 Automatically searching for all autism centers and related facilities...')
-      const places = await searchAutismRelatedPOI(finalLat, finalLon, radiusFilter * 1000, 30)
-      console.log(`✅ Automatically found ${places.length} autism-related facilities`)
-      if (places.length > 0) {
-        console.log(`📍 Autism facilities found: ${places.map(p => p.name).join(', ')}`)
-        setPOIPlaces(places)
-        setShowPOIPlaces(true)
-      } else {
-        console.log('ℹ️ No additional autism facilities found via automatic search')
-      }
-    } catch (poiError) {
-      console.log('⚠️ Automatic autism center search failed, using only database centers:', poiError)
-      // Don't set error here, just continue with database centers
-    } finally {
-      setPOILoading(false)
-      setIsLocating(false)
-    }
+    // Skip automatic POI search for faster initial loading
+    // Users can manually search if needed
+    setIsLocating(false)
   }
 
   const handleLocationSelect = async (location: { lat: number; lon: number; address: string }) => {
     setUserLocation([location.lat, location.lon])
     setCurrentLocation([location.lat, location.lon])
+    setSelectedLocation(location) // Store the selected location for pinpoint marker
     setLocationError(null)
 
     // Always try to load regular autism centers first
@@ -199,25 +187,8 @@ export default function GeoapifyLocationFinder() {
     }
 
     // Automatically search for all autism centers at selected location
-    setPOILoading(true)
-    try {
-      console.log('🔍 Automatically searching for autism centers at selected location...')
-      const places = await searchAutismRelatedPOI(location.lat, location.lon, radiusFilter * 1000, 30)
-      console.log(`✅ Automatically found ${places.length} autism facilities at selected location`)
-      if (places.length > 0) {
-        console.log(`📍 Facilities at location: ${places.map(p => p.name).join(', ')}`)
-        setPOIPlaces(places)
-        setShowPOIPlaces(true)
-        // Keep showing nearest center as well
-      } else {
-        console.log('ℹ️ No autism facilities found at selected location')
-      }
-    } catch (poiError) {
-      console.log('⚠️ Automatic search failed for selected location, using only database centers:', poiError)
-      // Don't set error here, just continue with database centers
-    } finally {
-      setPOILoading(false)
-    }
+    // Skip automatic POI search for selected location to improve performance
+    // Users can manually search if needed
   }
 
   const handleToggleFavorite = async (center: AutismCenter) => {
@@ -274,12 +245,15 @@ export default function GeoapifyLocationFinder() {
 
       if (route) {
         console.log('✅ Route calculated for preview:', route.summary)
+        console.log('🗺️ Route has', route.coordinates?.length, 'coordinates')
+        console.log('🗺️ Route coordinates sample:', route.coordinates?.slice(0, 2))
         setPreviewRoute(route)
         setSelectedCenterForRoute(center)
         setShowNearestCenter(false)
         setShowPOIPlaces(false)
         setShowSavedLocations(false)
       } else {
+        console.log('❌ No route returned from calculateRoute')
         setLocationError('Could not calculate route to this center')
       }
     } catch (error) {
@@ -540,6 +514,7 @@ export default function GeoapifyLocationFinder() {
         <GeoapifyMap
           centers={allCentersWithDistance}
           userLocation={userLocation || undefined}
+          selectedLocation={selectedLocation || undefined}
           onCenterSelect={(center) => setSelectedCenter(center as AutismCenter)}
           route={previewRoute ? {
             coordinates: previewRoute.coordinates,
@@ -555,6 +530,29 @@ export default function GeoapifyLocationFinder() {
             {isLocating ? 'Getting your location...' :
              poiLoading ? 'Automatically finding autism centers...' :
              'Loading centers...'}
+          </div>
+        )}
+
+        {/* Route preview indicator */}
+        {previewRoute && (
+          <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-2 rounded-lg shadow text-sm flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-300 rounded-full animate-pulse"></div>
+            Blue route displayed ({previewRoute.coordinates?.length || 0} points)
+            <button
+              onClick={handleClearRoute}
+              className="ml-2 text-blue-200 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
+            Route: {previewRoute ? 'Yes' : 'No'} |
+            Coords: {previewRoute?.coordinates?.length || 0} |
+            Show: {!!previewRoute ? 'Yes' : 'No'}
           </div>
         )}
       </div>

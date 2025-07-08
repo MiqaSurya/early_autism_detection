@@ -94,7 +94,11 @@ export async function getDirections(
 
     // Your exact result access pattern
     const coordinates = route.geometry?.coordinates
-    console.log("Route:", coordinates) // Array of [lon, lat] points
+    console.log("🗺️ Navigation route coordinates:", {
+      total: coordinates?.length,
+      sample: coordinates?.slice(0, 3),
+      geometryType: route.geometry?.type
+    })
     
     // Extract route steps
     const steps: RouteStep[] = properties.legs?.[0]?.steps?.map((step: any) => ({
@@ -107,13 +111,22 @@ export async function getDirections(
       street: step.name
     })) || []
 
-    return {
+    const navigationRoute = {
       steps,
       totalDistance: properties.distance || 0,
       totalDuration: properties.time || 0,
       coordinates: route.geometry?.coordinates || [],
       summary: `${formatDistance(properties.distance)} • ${formatDuration(properties.time)}`
     }
+
+    console.log('🗺️ Returning NavigationRoute:', {
+      hasSteps: navigationRoute.steps.length > 0,
+      hasCoordinates: navigationRoute.coordinates.length > 0,
+      coordinatesCount: navigationRoute.coordinates.length,
+      summary: navigationRoute.summary
+    })
+
+    return navigationRoute
   } catch (error) {
     console.error('Navigation error:', error)
     throw error

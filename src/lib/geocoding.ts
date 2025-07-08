@@ -1,5 +1,11 @@
 const GEOAPIFY_API_KEY = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY
 
+// Debug API key
+console.log('🔑 Geocoding API Key Status:', {
+  hasKey: !!GEOAPIFY_API_KEY,
+  keyPrefix: GEOAPIFY_API_KEY ? GEOAPIFY_API_KEY.substring(0, 8) + '...' : 'MISSING'
+})
+
 export interface GeocodeResult {
   latitude: number
   longitude: number
@@ -174,6 +180,7 @@ export async function searchPlaces(query: string, options?: {
   countryCode?: string
 }): Promise<GeocodeResult[]> {
   if (!GEOAPIFY_API_KEY) {
+    console.error('❌ Geoapify API key is not configured')
     throw new Error('Geoapify API key is not configured')
   }
 
@@ -182,40 +189,56 @@ export async function searchPlaces(query: string, options?: {
   }
 
   try {
+    console.log('🔍 Searching places for:', query, 'with options:', options)
+
     const params = new URLSearchParams({
       text: query,
       apiKey: GEOAPIFY_API_KEY,
       limit: (options?.limit || 5).toString()
     })
-    
+
     // Add bias for better local results
     if (options?.bias) {
       params.append('bias', `proximity:${options.bias.longitude},${options.bias.latitude}`)
     }
-    
+
     // Add country filter
     if (options?.countryCode) {
       params.append('filter', `countrycode:${options.countryCode}`)
     }
-    
+
     const url = `https://api.geoapify.com/v1/geocode/autocomplete?${params}`
-    
+    console.log('🌐 Request URL:', url)
+
     const response = await fetch(url)
-    
+    console.log('📡 Response status:', response.status, response.statusText)
+
     if (!response.ok) {
-      throw new Error(`Place search failed: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ API Error Response:', errorText)
+
+      // Check if it's an API key issue
+      if (response.status === 403) {
+        throw new Error('Invalid API key or API key not authorized for this endpoint')
+      } else if (response.status === 400) {
+        throw new Error('Invalid request parameters')
+      } else {
+        throw new Error(`Place search failed: ${response.status} ${response.statusText}`)
+      }
     }
-    
+
     const result = await response.json()
-    
+    console.log('📋 API Response:', result)
+
     if (!result.features || result.features.length === 0) {
+      console.log('ℹ️ No results found for query:', query)
       return []
     }
-    
+
     const results: GeocodeResult[] = result.features.map((feature: any) => {
       const coordinates = feature.geometry.coordinates
       const properties = feature.properties
-      
+
       return {
         latitude: coordinates[1],
         longitude: coordinates[0],
@@ -228,12 +251,15 @@ export async function searchPlaces(query: string, options?: {
         confidence: properties.confidence || 0
       }
     })
-    
+
+    console.log('✅ Processed results:', results)
     return results
-    
+
   } catch (error) {
     console.error('Place search error:', error)
-    throw error
+
+    // Return empty array instead of throwing to prevent UI crashes
+    return []
   }
 }
 

@@ -66,12 +66,22 @@ BEGIN
 
     -- Add started_at column if it doesn't exist
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'assessments' 
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'assessments'
         AND column_name = 'started_at'
         AND table_schema = 'public'
     ) THEN
         ALTER TABLE public.assessments ADD COLUMN started_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+    END IF;
+
+    -- Add responses column if it doesn't exist (THIS IS THE MISSING COLUMN!)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'assessments'
+        AND column_name = 'responses'
+        AND table_schema = 'public'
+    ) THEN
+        ALTER TABLE public.assessments ADD COLUMN responses JSONB;
     END IF;
 END $$;
 
@@ -79,6 +89,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_assessments_child_id ON public.assessments(child_id);
 CREATE INDEX IF NOT EXISTS idx_assessments_status ON public.assessments(status);
 CREATE INDEX IF NOT EXISTS idx_assessments_completed_at ON public.assessments(completed_at);
+CREATE INDEX IF NOT EXISTS idx_assessments_responses ON public.assessments USING GIN (responses);
 
 -- Enable RLS if not already enabled
 ALTER TABLE public.assessments ENABLE ROW LEVEL SECURITY;
