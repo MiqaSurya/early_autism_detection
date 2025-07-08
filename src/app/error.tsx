@@ -68,40 +68,37 @@ Please describe what you were doing when this error occurred:
         )}
 
         <div className="space-y-3">
-          <Button 
-            onClick={reset} 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          <button
+            onClick={reset}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
-          </Button>
-          
-          <Button 
-            onClick={handleReload} 
-            variant="outline" 
-            className="w-full"
+          </button>
+
+          <button
+            onClick={handleReload}
+            className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center justify-center"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Reload Page
-          </Button>
-          
-          <Button 
-            onClick={handleGoHome} 
-            variant="outline" 
-            className="w-full"
+          </button>
+
+          <button
+            onClick={handleGoHome}
+            className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center justify-center"
           >
             <Home className="h-4 w-4 mr-2" />
             Go to Dashboard
-          </Button>
-          
-          <Button 
-            onClick={handleReportError} 
-            variant="ghost" 
-            className="w-full text-gray-600"
+          </button>
+
+          <button
+            onClick={handleReportError}
+            className="w-full text-gray-600 py-3 px-4 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center justify-center"
           >
             <Mail className="h-4 w-4 mr-2" />
             Report This Error
-          </Button>
+          </button>
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
@@ -114,7 +111,7 @@ Please describe what you were doing when this error occurred:
             </p>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   )
 }
