@@ -2,10 +2,8 @@
 const nextConfig = {
   // Enable experimental features for better performance
   experimental: {
-    // Enable server components by default
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
     // Enable optimized package imports
-    optimizePackageImports: ['lucide-react', '@supabase/supabase-js'],
+    optimizePackageImports: ['lucide-react'],
   },
 
   // SWC configuration for JSX
