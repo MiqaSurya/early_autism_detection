@@ -263,7 +263,7 @@ export default function GeoapifyMap({
         // Always assume Geoapify format: [lon, lat] -> [lat, lon]
         return [coord[1], coord[0]] as [number, number]
       }
-      return coord as [number, number]
+      return [0, 0] as [number, number] // fallback for invalid coordinates
     })
   }, [showRoute, route])
 

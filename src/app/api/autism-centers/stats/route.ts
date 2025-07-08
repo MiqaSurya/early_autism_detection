@@ -32,7 +32,10 @@ export async function GET() {
     data?.forEach(center => {
       // Count by type
       if (center.type && stats.byType.hasOwnProperty(center.type)) {
-        stats.byType[center.type] = (stats.byType[center.type] || 0) + 1
+        const centerType = center.type as keyof typeof stats.byType
+        if (centerType in stats.byType) {
+          stats.byType[centerType] = (stats.byType[centerType] || 0) + 1
+        }
       }
       
       // Count verification status

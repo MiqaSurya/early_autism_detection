@@ -303,7 +303,10 @@ export async function getAutismCentersStats(): Promise<{
       }
 
       data?.forEach(center => {
-        stats.byType[center.type] = (stats.byType[center.type] || 0) + 1
+        const centerType = center.type as keyof typeof stats.byType
+        if (centerType in stats.byType) {
+          stats.byType[centerType] = (stats.byType[centerType] || 0) + 1
+        }
         if (center.verified) {
           stats.verified++
         } else {
