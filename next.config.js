@@ -32,7 +32,10 @@ const nextConfig = {
   output: 'standalone',
 
   // Static generation configuration
-  staticPageGenerationTimeout: 60,
+  staticPageGenerationTimeout: 120,
+
+  // Disable static optimization for problematic pages
+  generateStaticParams: false,
 
   // Caching configuration
   async rewrites() {
