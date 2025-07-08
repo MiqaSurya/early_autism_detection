@@ -242,7 +242,7 @@ export default function GeoapifyMap({
       if (process.env.NODE_ENV === 'development') {
         logger.debug('Detected nested coordinates, flattening', { component: 'GeoapifyMap' })
       }
-      flatCoordinates = route.coordinates[0] as [number, number][]
+      flatCoordinates = route.coordinates[0] as unknown as [number, number][]
     } else {
       flatCoordinates = route.coordinates
     }

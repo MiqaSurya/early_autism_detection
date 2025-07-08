@@ -136,7 +136,7 @@ function MapController({
         let flatCoordinates: [number, number][]
 
         if (route.coordinates.length === 1 && Array.isArray(route.coordinates[0])) {
-          flatCoordinates = route.coordinates[0] as [number, number][]
+          flatCoordinates = route.coordinates[0] as unknown as [number, number][]
         } else {
           flatCoordinates = route.coordinates
         }
@@ -248,7 +248,7 @@ export default function NavigationMap({
     // Check if coordinates are nested (GeoJSON LineString format)
     if (route.coordinates.length === 1 && Array.isArray(route.coordinates[0])) {
       console.log('🧭 Detected nested coordinates, flattening...')
-      flatCoordinates = route.coordinates[0] as [number, number][]
+      flatCoordinates = route.coordinates[0] as unknown as [number, number][]
     } else {
       flatCoordinates = route.coordinates
     }
