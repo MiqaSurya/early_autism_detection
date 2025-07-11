@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -73,12 +73,6 @@ export default function GeoapifyLocationFinder() {
     autoFetch: false
   })
 
-  // Get user location and fetch centers on mount - optimized
-  useEffect(() => {
-    // Skip API test for faster loading
-    handleFindNearby()
-  }, [])
-
   // Handle filter changes - refetch centers when filters change
   useEffect(() => {
     if (userLocation && !loading) {
@@ -120,7 +114,7 @@ export default function GeoapifyLocationFinder() {
     }
   }, [radiusFilter, typeFilter])
 
-  const handleFindNearby = async () => {
+  const handleFindNearby = useCallback(async () => {
     setIsLocating(true)
     setLocationError(null)
     setSelectedLocation(null) // Clear any previously selected location
@@ -162,7 +156,13 @@ export default function GeoapifyLocationFinder() {
     // Skip automatic POI search for faster initial loading
     // Users can manually search if needed
     setIsLocating(false)
-  }
+  }, [fetchCenters, radiusFilter, typeFilter])
+
+  // Get user location and fetch centers on mount - optimized
+  useEffect(() => {
+    // Skip API test for faster loading
+    handleFindNearby()
+  }, [handleFindNearby])
 
   const handleLocationSelect = async (location: { lat: number; lon: number; address: string }) => {
     setUserLocation([location.lat, location.lon])

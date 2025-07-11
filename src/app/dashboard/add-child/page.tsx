@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, User, Calendar, Save } from 'lucide-react'
 import Link from 'next/link'
+import { SupabaseDebug } from '@/components/debug/supabase-debug'
 
 export default function AddChildPage() {
   const [loading, setLoading] = useState(false)
@@ -17,7 +18,10 @@ export default function AddChildPage() {
   })
 
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,10 +38,52 @@ export default function AddChildPage() {
     setLoading(true)
     
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error('Not authenticated')
+      console.log('🔍 Starting child creation process...')
 
-      const { error } = await supabase
+      // Get the current user
+      const { data: user, error: userError } = await supabase.auth.getUser()
+      console.log('👤 User check:', { hasUser: !!user.user, userError: userError?.message })
+
+      if (!user.user) {
+        throw new Error('Not authenticated')
+      }
+
+      // Check if user has a profile, create one if missing
+      console.log('🔍 Checking user profile...')
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.user.id)
+        .single()
+
+      if (profileError && profileError.code === 'PGRST116') {
+        // Profile doesn't exist, create it
+        console.log('📝 Creating missing user profile...')
+        const { error: createProfileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.user.id,
+            display_name: user.user.email?.split('@')[0] || 'User',
+            email: user.user.email,
+            email_verified: true
+          })
+
+        if (createProfileError) {
+          console.error('❌ Error creating profile:', createProfileError)
+          throw new Error('Failed to create user profile. Please contact support.')
+        }
+        console.log('✅ User profile created successfully')
+      }
+
+      console.log('📝 Creating child with data:', {
+        parent_id: user.user.id,
+        name: formData.name,
+        date_of_birth: formData.date_of_birth,
+        gender: formData.gender || null,
+        additional_notes: formData.additional_notes || null
+      })
+
+      const { data: child, error } = await supabase
         .from('children')
         .insert([{
           parent_id: user.user.id,
@@ -46,8 +92,17 @@ export default function AddChildPage() {
           gender: formData.gender || null,
           additional_notes: formData.additional_notes || null
         }])
+        .select()
+        .single()
 
-      if (error) throw error
+      console.log('💾 Database result:', { child, error: error?.message })
+
+      if (error) {
+        console.error('❌ Database error:', error)
+        throw error
+      }
+
+      console.log('✅ Child created successfully!')
 
       toast({
         title: 'Success!',
@@ -57,7 +112,27 @@ export default function AddChildPage() {
       // Redirect back to progress page
       router.push('/dashboard/progress')
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create child profile'
+      console.error('❌ Error creating child:', err)
+
+      let errorMessage = 'Failed to create child profile'
+
+      if (err instanceof Error) {
+        errorMessage = err.message
+
+        // Handle specific error types
+        if (err.message.includes('duplicate key')) {
+          errorMessage = 'A child with this information already exists'
+        } else if (err.message.includes('foreign key') || err.message.includes('23503')) {
+          errorMessage = 'User profile issue detected. Please refresh the page and try again. If the problem persists, contact support.'
+        } else if (err.message.includes('permission denied')) {
+          errorMessage = 'Permission denied. Please check your account permissions.'
+        } else if (err.message.includes('row-level security')) {
+          errorMessage = 'Database security error. Please contact support.'
+        } else if (err.message.includes('children_parent_id_fkey')) {
+          errorMessage = 'User profile not found. Please log out and log back in, then try again.'
+        }
+      }
+
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -228,6 +303,11 @@ export default function AddChildPage() {
             <li>• Add notes and observations about your child's development</li>
           </ul>
         </div>
+      </div>
+
+      {/* Debug info - remove in production */}
+      <div className="mt-8">
+        <SupabaseDebug />
       </div>
     </div>
   )

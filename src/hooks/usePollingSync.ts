@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 
 interface UsePollingOptions {
   interval?: number // Polling interval in ms
@@ -15,9 +15,9 @@ export function usePollingSync({
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  const startPolling = () => {
+  const startPolling = useCallback(() => {
     if (intervalRef.current || !enabled) return
-    
+
     setIsActive(true)
     intervalRef.current = setInterval(() => {
       setLastUpdate(new Date())
@@ -25,22 +25,22 @@ export function usePollingSync({
         onUpdate()
       }
     }, interval)
-  }
+  }, [enabled, interval, onUpdate])
 
-  const stopPolling = () => {
+  const stopPolling = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
     setIsActive(false)
-  }
+  }, [])
 
-  const triggerUpdate = () => {
+  const triggerUpdate = useCallback(() => {
     setLastUpdate(new Date())
     if (onUpdate) {
       onUpdate()
     }
-  }
+  }, [onUpdate])
 
   useEffect(() => {
     if (enabled) {
@@ -50,7 +50,7 @@ export function usePollingSync({
     }
 
     return stopPolling
-  }, [enabled, interval])
+  }, [enabled, interval, startPolling, stopPolling])
 
   return {
     isActive,

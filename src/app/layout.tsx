@@ -1,6 +1,6 @@
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { ToastProvider } from '@/components/ui/use-toast'
 import { Toaster } from '@/components/ui/toaster'
@@ -8,6 +8,12 @@ import { GlobalErrorBoundary } from '@/components/error/GlobalErrorBoundary'
 import { AnalyticsProvider } from '@/components/providers/AnalyticsProvider'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
 
 export const metadata: Metadata = {
   title: {
@@ -32,7 +38,7 @@ export const metadata: Metadata = {
     telephone: true,
   },
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || 'https://early-autism-detection.vercel.app'
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://autismearlydetectioncompanion.vercel.app'
   ),
   alternates: {
     canonical: '/',
@@ -40,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Early Autism Detector - Autism Screening and Support Platform',
     description: 'Early detection and support for autism spectrum disorder with M-CHAT-R assessment, autism center locator, and AI-powered guidance.',
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://early-autism-detection.vercel.app',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://autismearlydetectioncompanion.vercel.app',
     siteName: 'Early Autism Detector',
     locale: 'en_US',
     type: 'website',
@@ -58,11 +64,6 @@ export const metadata: Metadata = {
     title: 'Early Autism Detector - Autism Screening and Support Platform',
     description: 'Early detection and support for autism spectrum disorder with M-CHAT-R assessment, autism center locator, and AI-powered guidance.',
     images: ['/twitter-image.png'],
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
   },
   robots: {
     index: true,

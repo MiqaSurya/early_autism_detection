@@ -23,9 +23,14 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
     setLoading(true)
 
     try {
+      // Get the current user
+      const { data: user } = await supabase.auth.getUser()
+      if (!user.user) throw new Error('Not authenticated')
+
       const { error } = await supabase
         .from('children')
         .insert({
+          parent_id: user.user.id,
           name,
           date_of_birth: dateOfBirth,
           gender
@@ -39,10 +44,11 @@ export function AddChildForm({ onSuccess, onCancel }: Props) {
       })
       onSuccess()
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create child profile'
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create child profile'
+        description: errorMessage
       })
     } finally {
       setLoading(false)

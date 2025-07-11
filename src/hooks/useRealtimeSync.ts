@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface UseRealtimeSyncOptions {
   table: string
@@ -20,7 +20,10 @@ export function useRealtimeSync({
   const [connectionStatus, setConnectionStatus] = useState<string>('connecting')
   const [error, setError] = useState<string | null>(null)
   
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const subscriptionRef = useRef<any>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)

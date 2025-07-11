@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { SavedLocation } from '@/types/location'
 import { useToast } from '@/components/ui/use-toast'
 
@@ -9,7 +9,7 @@ export function useSavedLocations() {
   const { toast } = useToast()
 
   // Fetch all saved locations (fallback to localStorage for now)
-  const fetchSavedLocations = async () => {
+  const fetchSavedLocations = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -42,7 +42,7 @@ export function useSavedLocations() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Save a new location (with localStorage fallback)
   const saveLocation = async (location: Omit<SavedLocation, 'id' | 'user_id' | 'created_at'>) => {
@@ -195,7 +195,7 @@ export function useSavedLocations() {
   // Load saved locations on component mount
   useEffect(() => {
     fetchSavedLocations()
-  }, [])
+  }, [fetchSavedLocations])
 
   return {
     savedLocations,

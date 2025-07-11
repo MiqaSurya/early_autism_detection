@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Users, FileText, MapPin, TrendingUp, Activity, AlertCircle, RefreshCw } from 'lucide-react'
 import { getAdminStats, getRecentActivities, getSystemAlerts, type AdminStats, type RecentActivity, type SystemAlert } from '@/lib/admin-db'
 
@@ -20,7 +20,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false)
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       // Fetch all data in parallel
       const [statsData, activitiesData, alertsData] = await Promise.all([
@@ -35,7 +35,7 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -111,7 +111,7 @@ export default function AdminDashboard() {
         cleanup()
       }
     }
-  }, [])
+  }, [loadDashboardData])
 
   const statCards = [
     {

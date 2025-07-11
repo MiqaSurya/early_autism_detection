@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, Users, FileText, MapPin, Calendar, RefreshCw } from 'lucide-react'
 import { getAnalyticsData, type AnalyticsData } from '@/lib/admin-db'
 import { supabase } from '@/lib/supabase'
@@ -26,7 +26,7 @@ export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false)
 
-  const loadAnalyticsData = async (selectedTimeRange?: '7d' | '30d' | '90d') => {
+  const loadAnalyticsData = useCallback(async (selectedTimeRange?: '7d' | '30d' | '90d') => {
     try {
       const range = selectedTimeRange || timeRange
       const data = await getAnalyticsData(range)
@@ -34,7 +34,7 @@ export default function AdminAnalyticsPage() {
     } catch (error) {
       console.error('Error loading analytics data:', error)
     }
-  }
+  }, [timeRange])
 
   useEffect(() => {
     const initializeAnalytics = async () => {
@@ -100,14 +100,14 @@ export default function AdminAnalyticsPage() {
         supabase.removeChannel(subscription)
       })
     }
-  }, [])
+  }, [loadAnalyticsData])
 
   // Handle time range changes
   useEffect(() => {
     if (!loading) {
       loadAnalyticsData(timeRange)
     }
-  }, [timeRange])
+  }, [timeRange, loading, loadAnalyticsData])
 
   const riskDistribution = [
     { label: 'Low Risk', value: analytics.riskDistribution.low, color: 'bg-green-500' },

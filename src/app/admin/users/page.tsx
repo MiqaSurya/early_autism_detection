@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, Filter, MoreVertical, Mail, Calendar, Shield, RefreshCw, Users } from 'lucide-react'
 import { getAllUsers, getUserStats, type AdminUser, type UserStats } from '@/lib/admin-db'
 import { supabase } from '@/lib/supabase'
@@ -18,19 +18,26 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false)
 
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
+      console.log('🔄 Loading admin user data...')
       const [usersData, statsData] = await Promise.all([
         getAllUsers(),
         getUserStats()
       ])
 
+      console.log('📊 Admin user data loaded:', {
+        usersCount: usersData.length,
+        statsData,
+        sampleUser: usersData[0]
+      })
+
       setUsers(usersData)
       setStats(statsData)
     } catch (error) {
-      console.error('Error loading user data:', error)
+      console.error('❌ Error loading user data:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
     const initializeUsersPage = async () => {
@@ -96,7 +103,7 @@ export default function AdminUsersPage() {
         supabase.removeChannel(subscription)
       })
     }
-  }, [])
+  }, [loadUserData])
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

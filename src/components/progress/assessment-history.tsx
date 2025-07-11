@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { useToast } from '@/components/ui/use-toast'
 import { BarChart3, Calendar, TrendingUp, TrendingDown, AlertCircle, Plus } from 'lucide-react'
 import { format } from 'date-fns'
@@ -24,7 +24,10 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const { toast } = useToast()
 
   useEffect(() => {

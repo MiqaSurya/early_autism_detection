@@ -118,17 +118,21 @@ export interface AssessmentStats {
 // Fetch total user count
 export async function getTotalUsers(): Promise<{ count: number; growth: string }> {
   try {
-    // Try profiles table first, fallback to auth.users
-    let totalCount = 0
-    let lastMonthCount = 0
+    console.log('🔍 Getting total users...')
 
-    // Try profiles table
-    const { count: profileCount, error: profileError } = await supabase
+    // Try profiles table first
+    const { data: profiles, count: profileCount, error: profileError } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id, created_at', { count: 'exact' })
+
+    console.log('📊 Profiles query result:', {
+      count: profileCount,
+      dataLength: profiles?.length,
+      error: profileError
+    })
 
     if (!profileError && profileCount !== null) {
-      totalCount = profileCount
+      const totalCount = profileCount
 
       // Get users from last month for growth calculation
       const lastMonth = new Date()
@@ -139,26 +143,27 @@ export async function getTotalUsers(): Promise<{ count: number; growth: string }
         .select('*', { count: 'exact', head: true })
         .gte('created_at', lastMonth.toISOString())
 
+      let lastMonthCount = 0
       if (!profileLastMonthError && profileLastMonth !== null) {
         lastMonthCount = profileLastMonth
       }
+
+      // Calculate growth percentage
+      const currentMonthUsers = lastMonthCount || 0
+      const previousMonthUsers = totalCount - currentMonthUsers
+      const growth = previousMonthUsers > 0
+        ? Math.round((currentMonthUsers / previousMonthUsers) * 100)
+        : currentMonthUsers > 0 ? 100 : 0
+
+      console.log('✅ User stats calculated:', { totalCount, currentMonthUsers, growth })
+
+      return {
+        count: totalCount,
+        growth: growth >= 0 ? `+${growth}%` : `${growth}%`
+      }
     } else {
-      // Fallback to auth.users (requires service role key)
-      console.log('Profiles table not accessible, using fallback data')
-      // For now, return sample data when profiles table is not accessible
+      console.error('❌ Error accessing profiles table:', profileError)
       return { count: 0, growth: '0%' }
-    }
-
-    // Calculate growth percentage
-    const currentMonthUsers = lastMonthCount || 0
-    const previousMonthUsers = totalCount - currentMonthUsers
-    const growth = previousMonthUsers > 0
-      ? Math.round((currentMonthUsers / previousMonthUsers) * 100)
-      : currentMonthUsers > 0 ? 100 : 0
-
-    return {
-      count: totalCount,
-      growth: growth >= 0 ? `+${growth}%` : `${growth}%`
     }
   } catch (error) {
     console.error('Error in getTotalUsers:', error)
@@ -169,14 +174,22 @@ export async function getTotalUsers(): Promise<{ count: number; growth: string }
 // Fetch total assessments count
 export async function getTotalAssessments(): Promise<{ count: number; growth: string }> {
   try {
+    console.log('🔍 Getting total assessments...')
+
     // Get total completed assessments
-    const { count: totalCount, error: totalError } = await supabase
+    const { data: assessments, count: totalCount, error: totalError } = await supabase
       .from('assessments')
-      .select('*', { count: 'exact', head: true })
+      .select('id, status, completed_at', { count: 'exact' })
       .eq('status', 'completed')
 
+    console.log('📊 Assessments query result:', {
+      count: totalCount,
+      dataLength: assessments?.length,
+      error: totalError
+    })
+
     if (totalError) {
-      console.error('Error fetching total assessments:', totalError)
+      console.error('❌ Error fetching total assessments:', totalError)
       return { count: 0, growth: '0%' }
     }
 
@@ -642,139 +655,47 @@ export async function getUserEngagementMetrics(): Promise<{
   }
 }
 
+// Helper function to get admin session for API calls
+function getAdminSessionHeader(): string | null {
+  if (typeof window !== 'undefined') {
+    const sessionData = localStorage.getItem('admin_session')
+    return sessionData
+  }
+  return null
+}
+
 // Fetch all users with detailed information
 export async function getAllUsers(): Promise<AdminUser[]> {
   try {
-    // Get all children to map to parents and count assessments
-    const { data: children, error: childrenError } = await supabase
-      .from('children')
-      .select('id, parent_id, name, created_at')
+    console.log('🔍 Fetching admin user data...')
 
-    if (childrenError) {
-      console.error('Error fetching children:', childrenError)
+    // Get admin session for authentication
+    const adminSession = getAdminSessionHeader()
+    if (!adminSession) {
+      console.error('❌ No admin session found')
       return []
     }
 
-    // Get all assessments to count per user
-    const { data: assessments, error: assessmentError } = await supabase
-      .from('assessments')
-      .select('child_id, status, started_at, completed_at')
-
-    if (assessmentError) {
-      console.error('Error fetching assessments:', assessmentError)
-    }
-
-    // Group children by parent and count assessments
-    const userMap = new Map<string, {
-      childrenCount: number
-      assessmentCount: number
-      lastActivity: string
-      children: any[]
-    }>()
-
-    // Process children
-    children?.forEach(child => {
-      const parentId = child.parent_id
-      if (!userMap.has(parentId)) {
-        userMap.set(parentId, {
-          childrenCount: 0,
-          assessmentCount: 0,
-          lastActivity: child.created_at,
-          children: []
-        })
-      }
-
-      const userData = userMap.get(parentId)!
-      userData.childrenCount++
-      userData.children.push(child)
-
-      // Update last activity if this child was created more recently
-      if (new Date(child.created_at) > new Date(userData.lastActivity)) {
-        userData.lastActivity = child.created_at
+    // Use the new admin API endpoint
+    const response = await fetch('/api/admin/users', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-session': adminSession
       }
     })
 
-    // Process assessments
-    assessments?.forEach(assessment => {
-      const child = children?.find(c => c.id === assessment.child_id)
-      if (child) {
-        const parentId = child.parent_id
-        const userData = userMap.get(parentId)
-        if (userData) {
-          userData.assessmentCount++
-
-          // Update last activity if assessment is more recent
-          const assessmentDate = assessment.completed_at || assessment.started_at
-          if (assessmentDate && new Date(assessmentDate) > new Date(userData.lastActivity)) {
-            userData.lastActivity = assessmentDate
-          }
-        }
-      }
-    })
-
-    // Try to get user profiles
-    const { data: profiles, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, email, created_at, email_verified')
-
-    let users: AdminUser[] = []
-
-    if (!profileError && profiles) {
-      // Use profiles data
-      users = profiles.map(profile => {
-        const userData = userMap.get(profile.id) || {
-          childrenCount: 0,
-          assessmentCount: 0,
-          lastActivity: profile.created_at,
-          children: []
-        }
-
-        // Determine if user is active (has activity in last 30 days)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        const isActive = new Date(userData.lastActivity) > thirtyDaysAgo
-
-        return {
-          id: profile.id,
-          name: profile.email?.split('@')[0] || 'Unknown User',
-          email: profile.email || 'No email',
-          joinDate: profile.created_at,
-          lastActive: userData.lastActivity,
-          assessments: userData.assessmentCount,
-          children: userData.childrenCount,
-          status: isActive ? 'active' : 'inactive',
-          emailVerified: profile.email_verified || false
-        }
-      })
-    } else {
-      // Fallback: create users from children data
-      const uniqueParentIds = [...userMap.keys()]
-      users = uniqueParentIds.map((parentId, index) => {
-        const userData = userMap.get(parentId)!
-
-        // Determine if user is active
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        const isActive = new Date(userData.lastActivity) > thirtyDaysAgo
-
-        return {
-          id: parentId,
-          name: `User ${index + 1}`,
-          email: `user${index + 1}@example.com`,
-          joinDate: userData.children[0]?.created_at || new Date().toISOString(),
-          lastActive: userData.lastActivity,
-          assessments: userData.assessmentCount,
-          children: userData.childrenCount,
-          status: isActive ? 'active' : 'inactive',
-          emailVerified: false
-        }
-      })
+    if (!response.ok) {
+      console.error('❌ Admin users API error:', response.status, response.statusText)
+      return []
     }
 
-    return users.sort((a, b) => new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime())
+    const users = await response.json()
+    console.log('✅ Admin API: Got users data:', users.length)
+    return users
 
   } catch (error) {
-    console.error('Error fetching all users:', error)
+    console.error('❌ Error fetching admin users:', error)
     return []
   }
 }
@@ -782,34 +703,34 @@ export async function getAllUsers(): Promise<AdminUser[]> {
 // Get user statistics for the stats cards
 export async function getUserStats(): Promise<UserStats> {
   try {
-    const users = await getAllUsers()
-
-    // Calculate stats
-    const totalUsers = users.length
-    const activeUsers = users.filter(u => u.status === 'active').length
-    const totalAssessments = users.reduce((sum, user) => sum + user.assessments, 0)
-
-    // Calculate new users this month
-    const thisMonth = new Date()
-    thisMonth.setDate(1) // First day of current month
-    const newThisMonth = users.filter(user =>
-      new Date(user.joinDate) >= thisMonth
-    ).length
-
-    return {
-      totalUsers,
-      activeUsers,
-      newThisMonth,
-      totalAssessments
+    // Get admin session for authentication
+    const adminSession = getAdminSessionHeader()
+    if (!adminSession) {
+      console.error('❌ No admin session found')
+      return { totalUsers: 0, activeUsers: 0, newThisMonth: 0, totalAssessments: 0 }
     }
+
+    // Use the new admin stats API endpoint
+    const response = await fetch('/api/admin/stats', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-session': adminSession
+      }
+    })
+
+    if (!response.ok) {
+      console.error('❌ Admin stats API error:', response.status, response.statusText)
+      return { totalUsers: 0, activeUsers: 0, newThisMonth: 0, totalAssessments: 0 }
+    }
+
+    const stats = await response.json()
+    console.log('✅ Admin API: Got stats data:', stats)
+    return stats
+
   } catch (error) {
-    console.error('Error fetching user stats:', error)
-    return {
-      totalUsers: 0,
-      activeUsers: 0,
-      newThisMonth: 0,
-      totalAssessments: 0
-    }
+    console.error('❌ Error fetching admin stats:', error)
+    return { totalUsers: 0, activeUsers: 0, newThisMonth: 0, totalAssessments: 0 }
   }
 }
 

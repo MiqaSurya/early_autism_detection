@@ -268,8 +268,17 @@ export async function getAutismCentersStats(): Promise<{
   unverified: number
 }> {
   try {
+    // Skip API call during build time
+    if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+      throw new Error('Skipping API call during build')
+    }
+
     // Use API endpoint for consistency
-    const response = await fetch('/api/autism-centers/stats')
+    const response = await fetch('/api/autism-centers/stats', {
+      headers: {
+        'User-Agent': 'admin-locations-client'
+      }
+    })
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status}`)

@@ -6,7 +6,8 @@ const SECURITY_CONFIG = {
   // Allowed origins for CORS
   allowedOrigins: process.env.NODE_ENV === 'production'
     ? [
-        process.env.NEXT_PUBLIC_SITE_URL || 'https://early-autism-detection.vercel.app',
+        process.env.NEXT_PUBLIC_SITE_URL || 'https://autismearlydetectioncompanion.vercel.app',
+        'https://autismearlydetectioncompanion.vercel.app',
         'https://early-autism-detection.vercel.app',
         'https://early-autism-detector.vercel.app'
       ]

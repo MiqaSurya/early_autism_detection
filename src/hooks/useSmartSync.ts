@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface UseSmartSyncOptions {
   table: string
@@ -23,7 +23,10 @@ export function useSmartSync({
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const subscriptionRef = useRef<any>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -148,13 +151,8 @@ export function useSmartSync({
               
               // Increment retry count and fallback to polling
               setRetryCount(prev => prev + 1)
-              
-              if (retryCount < maxRetries) {
-                // Retry WebSocket after delay
-                retryTimeoutRef.current = setTimeout(() => {
-                  tryWebSocket()
-                }, 5000 * (retryCount + 1)) // Exponential backoff
-              } else {
+
+              if (retryCount >= maxRetries) {
                 // Max retries reached, use polling
                 startPolling()
               }
@@ -178,6 +176,17 @@ export function useSmartSync({
       startPolling()
     }
   }, [table, enableWebSocket, retryCount, maxRetries, onUpdate, onError, supabase, cleanup, startPolling, stopPolling])
+
+  // Handle retry logic
+  useEffect(() => {
+    if (retryCount > 0 && retryCount < maxRetries && enableWebSocket) {
+      const timeoutId = setTimeout(() => {
+        tryWebSocket()
+      }, 5000 * retryCount) // Exponential backoff
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [retryCount, maxRetries, enableWebSocket, tryWebSocket])
 
   const forcePolling = useCallback(() => {
     cleanup()

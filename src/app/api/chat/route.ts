@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { withRateLimit, checkExternalApiLimit } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
 
 // System message for the AI assistant
 const SYSTEM_MESSAGE = `You are an autism information specialist providing accurate, research-based information about autism spectrum disorder (ASD). Your role is to:
@@ -75,7 +78,24 @@ async function queryDeepSeekModel(messages: any[]) {
 // Apply rate limiting to the POST handler
 const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
 
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession()

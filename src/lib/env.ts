@@ -24,18 +24,35 @@ const serverEnvSchema = z.object({
   NEXT_PUBLIC_GEOAPIFY_API_KEY: z.string().min(1),
 
   // Monitoring (optional in development)
-  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional().or(z.literal('')),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().optional().transform(val => {
+    if (!val || val === '' || val === 'undefined') return undefined
+    try {
+      new URL(val)
+      return val
+    } catch {
+      console.warn(`⚠️ Invalid NEXT_PUBLIC_SENTRY_DSN: ${val}`)
+      return undefined
+    }
+  }),
   SENTRY_ORG: z.string().optional().or(z.literal('')),
   SENTRY_PROJECT: z.string().optional().or(z.literal('')),
   SENTRY_AUTH_TOKEN: z.string().optional().or(z.literal('')),
 
   // Email (optional)
   SENDGRID_API_KEY: z.string().optional().or(z.literal('')),
-  SENDGRID_FROM_EMAIL: z.string().email().optional().or(z.literal('')),
+  SENDGRID_FROM_EMAIL: z.union([
+    z.string().email(),
+    z.literal(''),
+    z.undefined()
+  ]).optional(),
 
   // Security
   NEXTAUTH_SECRET: z.string().optional().or(z.literal('')),
-  NEXTAUTH_URL: z.string().url().optional().or(z.literal('')),
+  NEXTAUTH_URL: z.union([
+    z.string().url(),
+    z.literal(''),
+    z.undefined()
+  ]).optional(),
 
   // Analytics (optional)
   NEXT_PUBLIC_GA_MEASUREMENT_ID: z.string().optional().or(z.literal('')),
@@ -49,7 +66,7 @@ const serverEnvSchema = z.object({
 // For client-side, create a more lenient approach
 const clientEnvDefaults = {
   NODE_ENV: 'development' as const,
-  NEXT_PUBLIC_SITE_URL: 'http://localhost:3000',
+  NEXT_PUBLIC_SITE_URL: 'https://autismearlydetectioncompanion.vercel.app',
   NEXT_PUBLIC_SUPABASE_URL: '',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
   NEXT_PUBLIC_GEOAPIFY_API_KEY: '',

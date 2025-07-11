@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   FileText, 
   Users, 
@@ -53,21 +53,21 @@ export default function AdminAssessmentsPage() {
   const [editingAssessment, setEditingAssessment] = useState<AdminAssessment | null>(null)
   const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false)
 
-  const loadAssessmentData = async () => {
+  const loadAssessmentData = useCallback(async () => {
     try {
       const [assessmentsData, statsData, questionsData] = await Promise.all([
         getAllAssessments(),
         getAssessmentStats(),
         getQuestionnaireQuestions()
       ])
-      
+
       setAssessments(assessmentsData)
       setStats(statsData)
       setQuestions(questionsData)
     } catch (error) {
       console.error('Error loading assessment data:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
     const initializeAssessments = async () => {
@@ -119,7 +119,7 @@ export default function AdminAssessmentsPage() {
         supabase.removeChannel(subscription)
       })
     }
-  }, [])
+  }, [loadAssessmentData])
 
   const filteredAssessments = assessments.filter(assessment => {
     const matchesSearch = 

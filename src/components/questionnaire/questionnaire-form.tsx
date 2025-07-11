@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { Question } from '@/types/questions'
 import { calculateScore, getScoringRange } from '@/lib/scoring'
 import { ResultsView } from './results-view'
@@ -89,10 +89,12 @@ export function QuestionnaireForm({ childId }: QuestionnaireFormProps) {
   const [questionsLoading, setQuestionsLoading] = useState(true)
 
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  useEffect(() => {
-    const fetchQuestions = async () => {
+  const fetchQuestions = useCallback(async () => {
       setQuestionsLoading(true)
       try {
         const dbQuestions = await getQuestionnaireQuestions()
@@ -123,8 +125,9 @@ export function QuestionnaireForm({ childId }: QuestionnaireFormProps) {
         setAnswers({})
       }
       setQuestionsLoading(false)
-    }
+    }, [])
 
+  useEffect(() => {
     fetchQuestions()
 
     // Set up real-time subscription for question changes
@@ -142,7 +145,7 @@ export function QuestionnaireForm({ childId }: QuestionnaireFormProps) {
     return () => {
       supabase.removeChannel(subscription)
     }
-  }, [])
+  }, [fetchQuestions])
 
   // M-CHAT-R Scoring Algorithm using database questions
   const calculateMChatScore = () => {

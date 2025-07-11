@@ -23,7 +23,7 @@ const requiredEnvVars = {
   'NEXT_PUBLIC_GEOAPIFY_API_KEY': 4de47a12d22c4b2d94f1eb9c8f66c23e,
   
   // Security
-  'NEXTAUTH_SECRET': 'Random secret for NextAuth (use: openssl rand -base64 32)',
+  'NEXTAUTH_SECRET': On3fWoM+/pXkHwHhxpOUvv3cJY9iNUDY4urISzJt5Pc=,
   'NEXTAUTH_URL': 'Production URL for NextAuth'
 }
 
