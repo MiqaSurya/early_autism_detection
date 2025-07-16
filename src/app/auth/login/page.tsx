@@ -110,12 +110,78 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-teal-50 px-4 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-blue-400 rounded-full"></div>
-        <div className="absolute top-32 right-20 w-24 h-24 bg-red-400 rounded-full"></div>
-        <div className="absolute bottom-40 left-32 w-28 h-28 bg-yellow-400 rounded-full"></div>
-        <div className="absolute bottom-20 right-40 w-20 h-20 bg-green-400 rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-36 h-36 bg-purple-400 rounded-full"></div>
+      {/* Background decorative autism-themed elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Autism awareness puzzle pieces */}
+        <div className="absolute top-10 left-10 opacity-10 transform rotate-12">
+          <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg relative">
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white rounded-full"></div>
+            <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Heart shape with autism colors */}
+        <div className="absolute top-20 right-10 opacity-12 transform -rotate-6">
+          <div className="relative w-24 h-20">
+            <div className="absolute top-0 left-0 w-12 h-12 bg-red-400 rounded-full transform rotate-45"></div>
+            <div className="absolute top-0 right-0 w-12 h-12 bg-red-400 rounded-full transform rotate-45"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-12 border-r-12 border-t-16 border-l-transparent border-r-transparent border-t-red-400"></div>
+          </div>
+        </div>
+
+        {/* Colorful therapy blocks */}
+        <div className="absolute bottom-20 left-20 opacity-15 transform rotate-6">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="w-8 h-8 bg-red-400 rounded"></div>
+            <div className="w-8 h-8 bg-blue-400 rounded"></div>
+            <div className="w-8 h-8 bg-green-400 rounded"></div>
+            <div className="w-8 h-8 bg-yellow-400 rounded"></div>
+            <div className="w-8 h-8 bg-purple-400 rounded"></div>
+            <div className="w-8 h-8 bg-pink-400 rounded"></div>
+          </div>
+        </div>
+
+        {/* Large puzzle piece - bottom right */}
+        <div className="absolute bottom-10 right-20 opacity-8 transform -rotate-12">
+          <div className="w-40 h-40 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg relative">
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-white rounded-full"></div>
+            <div className="absolute -left-3 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Small floating puzzle pieces */}
+        <div className="absolute top-1/3 left-1/4 opacity-8">
+          <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded relative">
+            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full"></div>
+            <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="absolute top-2/3 right-1/3 opacity-8">
+          <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded relative">
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+            <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Scattered colorful dots for additional visual interest */}
+        <div className="absolute top-1/4 right-1/4 w-3 h-3 bg-blue-400 rounded-full opacity-20"></div>
+        <div className="absolute top-3/4 left-1/3 w-2 h-2 bg-red-400 rounded-full opacity-20"></div>
+        <div className="absolute bottom-1/3 right-1/2 w-4 h-4 bg-yellow-400 rounded-full opacity-15"></div>
+        <div className="absolute top-1/6 left-2/3 w-2.5 h-2.5 bg-green-400 rounded-full opacity-20"></div>
+
+        {/* Rainbow arc */}
+        <div className="absolute top-1/2 left-10 opacity-10">
+          <div className="w-32 h-16 border-t-4 border-red-400 rounded-t-full"></div>
+          <div className="w-28 h-14 border-t-4 border-orange-400 rounded-t-full mt-1 ml-2"></div>
+          <div className="w-24 h-12 border-t-4 border-yellow-400 rounded-t-full mt-1 ml-4"></div>
+          <div className="w-20 h-10 border-t-4 border-green-400 rounded-t-full mt-1 ml-6"></div>
+          <div className="w-16 h-8 border-t-4 border-blue-400 rounded-t-full mt-1 ml-8"></div>
+        </div>
       </div>
 
       <div className="flex items-center justify-center min-h-screen p-4 relative z-10">

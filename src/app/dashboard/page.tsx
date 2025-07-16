@@ -33,9 +33,73 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* Background decorative autism-themed elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Autism awareness puzzle pieces */}
+        <div className="absolute top-20 left-10 opacity-6 transform rotate-12">
+          <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg relative">
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white rounded-full"></div>
+            <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Colorful therapy blocks - top right */}
+        <div className="absolute top-32 right-10 opacity-5 transform -rotate-6">
+          <div className="grid grid-cols-2 gap-1">
+            <div className="w-6 h-6 bg-red-400 rounded"></div>
+            <div className="w-6 h-6 bg-blue-400 rounded"></div>
+            <div className="w-6 h-6 bg-green-400 rounded"></div>
+            <div className="w-6 h-6 bg-yellow-400 rounded"></div>
+          </div>
+        </div>
+
+        {/* Heart shape - bottom left */}
+        <div className="absolute bottom-32 left-20 opacity-6 transform rotate-6">
+          <div className="relative w-16 h-14">
+            <div className="absolute top-0 left-0 w-8 h-8 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute top-0 right-0 w-8 h-8 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-10 border-l-transparent border-r-transparent border-t-pink-400"></div>
+          </div>
+        </div>
+
+        {/* Large puzzle piece - bottom right */}
+        <div className="absolute bottom-20 right-20 opacity-4 transform -rotate-12">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg relative">
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white rounded-full"></div>
+            <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Small floating puzzle pieces */}
+        <div className="absolute top-1/3 left-1/4 opacity-4">
+          <div className="w-6 h-6 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded relative">
+            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full"></div>
+            <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="absolute top-2/3 right-1/3 opacity-4">
+          <div className="w-5 h-5 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded relative">
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+            <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="absolute top-1/2 left-1/2 opacity-3 transform -translate-x-1/2 -translate-y-1/2">
+          <div className="w-4 h-4 bg-gradient-to-br from-rose-400 to-rose-600 rounded relative">
+            <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-gradient-to-br from-rose-400 to-rose-600 rounded-full"></div>
+            <div className="absolute -right-0.5 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-white rounded-full"></div>
+          </div>
+        </div>
+      </div>
+
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b border-gray-100">
+      <header className="bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -61,10 +125,58 @@ export default function DashboardPage() {
       >
         {/* Hero Section */}
         <motion.div
-          className="bg-gradient-to-r from-blue-600 to-purple-700 text-white"
+          className="bg-gradient-to-r from-blue-600 to-purple-700 text-white relative overflow-hidden"
           variants={itemVariants}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          {/* Hero background decorations */}
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Subtle puzzle pieces in hero */}
+            <div className="absolute top-10 right-20 opacity-10">
+              <div className="w-12 h-12 bg-white rounded-lg relative">
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"></div>
+                <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-600 rounded-full"></div>
+                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-600 rounded-full"></div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-15 left-20 opacity-8">
+              <div className="w-9 h-9 bg-white rounded-lg relative">
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+                <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full"></div>
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full"></div>
+                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+              </div>
+            </div>
+
+            <div className="absolute top-1/2 left-10 opacity-6">
+              <div className="w-7 h-7 bg-white rounded-lg relative">
+                <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+                <div className="absolute -right-0.5 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
+                <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
+                <div className="absolute -left-0.5 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-white rounded-full"></div>
+              </div>
+            </div>
+
+            {/* Floating hearts */}
+            <div className="absolute top-20 left-1/3 opacity-15">
+              <div className="relative w-5 h-4">
+                <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-white rounded-full transform rotate-45"></div>
+                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-white rounded-full transform rotate-45"></div>
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2.5 border-r-2.5 border-t-3 border-l-transparent border-r-transparent border-t-white"></div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-20 right-1/3 opacity-12">
+              <div className="relative w-4 h-3">
+                <div className="absolute top-0 left-0 w-2 h-2 bg-white rounded-full transform rotate-45"></div>
+                <div className="absolute top-0 right-0 w-2 h-2 bg-white rounded-full transform rotate-45"></div>
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-l-transparent border-r-transparent border-t-white"></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10">
             <div className="text-center">
               <motion.h1
                 className="text-4xl md:text-6xl font-bold mb-6"
@@ -304,6 +416,85 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
+        {/* Understanding Autism - Common Difficulties Section */}
+        <motion.div
+          className="bg-white py-16"
+          variants={itemVariants}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Understanding Autism Spectrum Disorder
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Learn about common characteristics and how to provide the best support for your child's unique needs.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-12">
+              {/* Common Difficulties */}
+              <div className="bg-blue-50 rounded-lg p-8">
+                <h3 className="text-2xl font-bold text-blue-900 mb-6 flex items-center gap-3">
+                  <Brain className="h-8 w-8 text-blue-600" />
+                  Five Common Difficulties Often Associated with Autism
+                </h3>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-800 mb-2">Social Interactions</h4>
+                    <p className="text-blue-700">Difficulty with nonverbal cues, conversations, and social norms.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-800 mb-2">Sensory Sensitivities</h4>
+                    <p className="text-blue-700">Heightened or diminished sensitivity to sensory input.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-800 mb-2">Restriction/Repetition</h4>
+                    <p className="text-blue-700">Repetitive movements, strict routines, intense interests.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-800 mb-2">Communication Difficulties</h4>
+                    <p className="text-blue-700">Delayed language, verbal challenges, abstract language understanding.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-800 mb-2">Executive Functioning Issues</h4>
+                    <p className="text-blue-700">Problems with planning, organizing, time management, adapting to change.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Support Strategies */}
+              <div className="bg-green-50 rounded-lg p-8">
+                <h3 className="text-2xl font-bold text-green-900 mb-6 flex items-center gap-3">
+                  <Heart className="h-8 w-8 text-green-600" />
+                  Support Strategies & Tips
+                </h3>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-800 mb-2">Create Predictable Routines</h4>
+                    <p className="text-green-700">Consistent daily schedules help reduce anxiety and provide security.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-800 mb-2">Use Visual Supports</h4>
+                    <p className="text-green-700">Pictures, schedules, and visual cues improve communication and understanding.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-800 mb-2">Sensory Accommodations</h4>
+                    <p className="text-green-700">Create sensory-friendly environments and identify triggers or preferences.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-800 mb-2">Break Tasks Down</h4>
+                    <p className="text-green-700">Divide complex activities into smaller, manageable steps.</p>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-green-800 mb-2">Celebrate Strengths</h4>
+                    <p className="text-green-700">Focus on your child's unique abilities and interests to build confidence.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Connect to Community Section */}
         <motion.div
           className="bg-blue-600 text-white py-16"
@@ -391,13 +582,142 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Support Section */}
+        {/* Practical Tips & Early Intervention Section */}
         <motion.div
           className="bg-gray-50 py-16"
           variants={itemVariants}
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Practical Tips for Daily Support
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Evidence-based strategies to help your child thrive in everyday situations.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+              {/* Communication Tips */}
+              <motion.div
+                className="bg-white rounded-lg shadow-lg p-6"
+                variants={itemVariants}
+              >
+                <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                  <MessageCircle className="h-8 w-8 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Communication Support</h3>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Use simple, clear language</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Give processing time after speaking</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Use gestures and visual cues</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Validate their communication attempts</span>
+                  </li>
+                </ul>
+              </motion.div>
+
+              {/* Sensory Management */}
+              <motion.div
+                className="bg-white rounded-lg shadow-lg p-6"
+                variants={itemVariants}
+              >
+                <div className="w-16 h-16 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                  <Shield className="h-8 w-8 text-orange-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Sensory Management</h3>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Create quiet spaces for breaks</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Use noise-canceling headphones</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Provide sensory tools (fidgets, weighted items)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Prepare for sensory-rich environments</span>
+                  </li>
+                </ul>
+              </motion.div>
+
+              {/* Behavioral Support */}
+              <motion.div
+                className="bg-white rounded-lg shadow-lg p-6"
+                variants={itemVariants}
+              >
+                <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                  <Users className="h-8 w-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Behavioral Support</h3>
+                <ul className="space-y-2 text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Use positive reinforcement</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Identify triggers and patterns</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Teach coping strategies</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    <span className="text-sm">Stay calm during challenging moments</span>
+                  </li>
+                </ul>
+              </motion.div>
+            </div>
+
+            {/* Early Intervention Importance */}
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-8 text-white text-center">
+              <h3 className="text-2xl font-bold mb-4">The Power of Early Intervention</h3>
+              <div className="grid md:grid-cols-3 gap-8 mb-6">
+                <div>
+                  <div className="text-3xl font-bold mb-2">85%</div>
+                  <p className="text-blue-100">of children benefit significantly from early intervention services</p>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-2">18-24</div>
+                  <p className="text-blue-100">months is the optimal age range for autism screening</p>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-2">2-5x</div>
+                  <p className="text-blue-100">more effective when intervention starts before age 4</p>
+                </div>
+              </div>
+              <p className="text-lg text-blue-100 max-w-3xl mx-auto">
+                Early identification and intervention can significantly improve outcomes for children with autism.
+                The earlier support begins, the better the long-term results for communication, social skills, and independence.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Support Section */}
+        <motion.div
+          className="bg-white py-16"
+          variants={itemVariants}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-lg p-8 text-center">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
                   Connect to support from the Early Autism Detection Companion

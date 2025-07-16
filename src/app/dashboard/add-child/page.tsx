@@ -160,8 +160,65 @@ export default function AddChildPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-8 relative overflow-hidden">
+      {/* Background decorative autism-themed elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Learning blocks - top right */}
+        <div className="absolute top-10 right-10 opacity-8 transform -rotate-6">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="w-6 h-6 bg-red-400 rounded"></div>
+            <div className="w-6 h-6 bg-blue-400 rounded"></div>
+            <div className="w-6 h-6 bg-green-400 rounded"></div>
+            <div className="w-6 h-6 bg-yellow-400 rounded"></div>
+            <div className="w-6 h-6 bg-purple-400 rounded"></div>
+            <div className="w-6 h-6 bg-pink-400 rounded"></div>
+          </div>
+        </div>
+
+        {/* Heart puzzle - bottom left */}
+        <div className="absolute bottom-20 left-10 opacity-10 transform rotate-12">
+          <div className="relative w-20 h-16">
+            <div className="absolute top-0 left-0 w-10 h-10 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute top-0 right-0 w-10 h-10 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-10 border-r-10 border-t-12 border-l-transparent border-r-transparent border-t-pink-400"></div>
+            {/* Small puzzle piece overlay */}
+            <div className="absolute top-2 left-2 w-4 h-4 bg-white rounded relative">
+              <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+              <div className="absolute -right-0.5 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-pink-400 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating puzzle pieces */}
+        <div className="absolute top-1/3 left-1/4 opacity-6">
+          <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded relative">
+            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="absolute top-2/3 right-1/3 opacity-6">
+          <div className="w-5 h-5 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded relative">
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+            <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Scattered colorful dots */}
+        <div className="absolute top-1/4 right-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-20"></div>
+        <div className="absolute top-3/4 left-1/3 w-1.5 h-1.5 bg-red-400 rounded-full opacity-20"></div>
+        <div className="absolute bottom-1/3 right-1/2 w-3 h-3 bg-yellow-400 rounded-full opacity-15"></div>
+
+        {/* Small rainbow arc */}
+        <div className="absolute top-1/2 right-10 opacity-8">
+          <div className="w-16 h-8 border-t-2 border-red-400 rounded-t-full"></div>
+          <div className="w-14 h-7 border-t-2 border-orange-400 rounded-t-full mt-0.5 ml-1"></div>
+          <div className="w-12 h-6 border-t-2 border-yellow-400 rounded-t-full mt-0.5 ml-2"></div>
+          <div className="w-10 h-5 border-t-2 border-green-400 rounded-t-full mt-0.5 ml-3"></div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 relative z-10">
         {/* Header */}
         <div className="mb-8">
           <Link 
@@ -184,7 +241,7 @@ export default function AddChildPage() {
         </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Child's Name */}
             <div>

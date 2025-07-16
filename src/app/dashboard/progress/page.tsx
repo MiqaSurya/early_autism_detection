@@ -243,12 +243,63 @@ export default function ProgressPage() {
   if (children.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-teal-50 px-4 relative overflow-hidden">
-        {/* Autism Awareness Background Elements */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-20 left-20 w-24 h-24 bg-blue-500 rounded-full"></div>
-          <div className="absolute top-40 right-32 w-16 h-16 bg-red-500 rounded-full"></div>
-          <div className="absolute bottom-40 left-40 w-20 h-20 bg-yellow-500 rounded-full"></div>
-          <div className="absolute bottom-32 right-20 w-12 h-12 bg-green-500 rounded-full"></div>
+        {/* Background decorative autism-themed elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Large heart puzzle - center */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-6">
+            <div className="relative w-32 h-26">
+              <div className="absolute top-0 left-0 w-16 h-16 bg-pink-300 rounded-full transform rotate-45"></div>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-pink-300 rounded-full transform rotate-45"></div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-16 border-r-16 border-t-20 border-l-transparent border-r-transparent border-t-pink-300"></div>
+              {/* Puzzle piece overlays */}
+              <div className="absolute top-3 left-3 w-6 h-6 bg-white rounded relative">
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+                <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-pink-300 rounded-full"></div>
+              </div>
+              <div className="absolute top-3 right-3 w-6 h-6 bg-white rounded relative">
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-300 rounded-full"></div>
+                <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+              </div>
+              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-white rounded relative">
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-pink-300 rounded-full"></div>
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Learning blocks - top right */}
+          <div className="absolute top-20 right-10 opacity-5 transform -rotate-6">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="w-5 h-5 bg-red-300 rounded"></div>
+              <div className="w-5 h-5 bg-blue-300 rounded"></div>
+              <div className="w-5 h-5 bg-green-300 rounded"></div>
+              <div className="w-5 h-5 bg-yellow-300 rounded"></div>
+            </div>
+          </div>
+
+          {/* Therapy materials - bottom left */}
+          <div className="absolute bottom-20 left-10 opacity-5 transform rotate-12">
+            <div className="flex gap-1">
+              <div className="w-4 h-8 bg-purple-300 rounded-t-full"></div>
+              <div className="w-4 h-8 bg-cyan-300 rounded-t-full"></div>
+              <div className="w-4 h-8 bg-orange-300 rounded-t-full"></div>
+            </div>
+          </div>
+
+          {/* Floating puzzle pieces */}
+          <div className="absolute top-1/4 left-1/4 opacity-3">
+            <div className="w-5 h-5 bg-gradient-to-br from-purple-300 to-purple-500 rounded relative">
+              <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-gradient-to-br from-purple-300 to-purple-500 rounded-full"></div>
+              <div className="absolute -right-0.5 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-white rounded-full"></div>
+            </div>
+          </div>
+
+          <div className="absolute top-3/4 right-1/4 opacity-3">
+            <div className="w-4 h-4 bg-gradient-to-br from-cyan-300 to-cyan-500 rounded relative">
+              <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-0.5 h-0.5 bg-white rounded-full"></div>
+              <div className="absolute -left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-0.5 bg-gradient-to-br from-cyan-300 to-cyan-500 rounded-full"></div>
+            </div>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto py-12 relative z-10">
@@ -294,12 +345,70 @@ export default function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-teal-50 px-4 relative overflow-hidden">
-      {/* Autism Awareness Background Elements */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-20 left-20 w-24 h-24 bg-blue-500 rounded-full"></div>
-        <div className="absolute top-40 right-32 w-16 h-16 bg-red-500 rounded-full"></div>
-        <div className="absolute bottom-40 left-40 w-20 h-20 bg-yellow-500 rounded-full"></div>
-        <div className="absolute bottom-32 right-20 w-12 h-12 bg-green-500 rounded-full"></div>
+      {/* Background decorative autism-themed elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Autism awareness puzzle pieces - top left */}
+        <div className="absolute top-20 left-10 opacity-6 transform rotate-12">
+          <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg relative">
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-white rounded-full"></div>
+            <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Therapy blocks - top right */}
+        <div className="absolute top-32 right-10 opacity-5 transform -rotate-6">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="w-8 h-8 bg-red-400 rounded"></div>
+            <div className="w-8 h-8 bg-blue-400 rounded"></div>
+            <div className="w-8 h-8 bg-green-400 rounded"></div>
+            <div className="w-8 h-8 bg-yellow-400 rounded"></div>
+          </div>
+        </div>
+
+        {/* Learning materials - bottom left */}
+        <div className="absolute bottom-32 left-20 opacity-6 transform rotate-6">
+          <div className="flex gap-2">
+            <div className="w-6 h-12 bg-red-400 rounded-t-full"></div>
+            <div className="w-6 h-12 bg-blue-400 rounded-t-full"></div>
+            <div className="w-6 h-12 bg-green-400 rounded-t-full"></div>
+            <div className="w-6 h-12 bg-yellow-400 rounded-t-full"></div>
+          </div>
+        </div>
+
+        {/* Heart puzzle - bottom right */}
+        <div className="absolute bottom-20 right-20 opacity-8 transform -rotate-12">
+          <div className="relative w-20 h-16">
+            <div className="absolute top-0 left-0 w-10 h-10 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute top-0 right-0 w-10 h-10 bg-pink-400 rounded-full transform rotate-45"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-10 border-r-10 border-t-12 border-l-transparent border-r-transparent border-t-pink-400"></div>
+            {/* Small puzzle pieces overlay */}
+            <div className="absolute top-2 left-2 w-3 h-3 bg-white rounded relative">
+              <div className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-0.5 h-0.5 bg-white rounded-full"></div>
+              <div className="absolute -right-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-0.5 bg-pink-400 rounded-full"></div>
+            </div>
+            <div className="absolute top-2 right-2 w-3 h-3 bg-white rounded relative">
+              <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-0.5 h-0.5 bg-pink-400 rounded-full"></div>
+              <div className="absolute -left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-0.5 bg-white rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional floating puzzle pieces */}
+        <div className="absolute top-1/3 left-1/4 opacity-4">
+          <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded relative">
+            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full"></div>
+            <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="absolute top-2/3 right-1/3 opacity-4">
+          <div className="w-5 h-5 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded relative">
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
+            <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full"></div>
+          </div>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto py-8 relative z-10">
