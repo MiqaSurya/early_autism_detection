@@ -165,10 +165,10 @@ export async function GET(request: Request) {
       longitude: centerUser.longitude,
       phone: centerUser.phone,
       email: centerUser.email,
-      description: centerUser.description,
+      description: (centerUser as any).description || '',
       contact_person: centerUser.contact_person,
       verified: centerUser.is_verified || false,
-      created_at: centerUser.created_at,
+      created_at: (centerUser as any).created_at || new Date().toISOString(),
       updated_at: centerUser.updated_at,
       // Default values for fields that don't exist in center_users
       services: getDefaultServices(centerUser.center_type),

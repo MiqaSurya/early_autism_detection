@@ -15,7 +15,7 @@ if (process.env.NODE_ENV === 'production') {
   release: process.env.VERCEL_GIT_COMMIT_SHA,
   
   // Server-specific configuration
-  beforeSend(event, hint) {
+  beforeSend(event: any, hint: any) {
     // Filter out development errors
     if (process.env.NODE_ENV === 'development') {
       return null

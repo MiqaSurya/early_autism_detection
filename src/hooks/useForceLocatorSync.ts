@@ -168,7 +168,7 @@ export function useForceLocatorSync({
 
     } catch (error) {
       console.error('❌ WebSocket setup failed:', error)
-      if (onError) onError(error)
+      if (onError) onError?.(error)
 
       // Immediate fallback to optimized polling
       startOptimizedPolling()

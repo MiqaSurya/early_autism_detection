@@ -130,8 +130,8 @@ export async function POST(request: NextRequest) {
 
       // Log what's changing
       Object.keys(centerData).forEach(key => {
-        if (existingCenter[key] !== centerData[key]) {
-          console.log(`  ${key}: "${existingCenter[key]}" → "${centerData[key]}"`)
+        if ((existingCenter as any)[key] !== (centerData as any)[key]) {
+          console.log(`  ${key}: "${(existingCenter as any)[key]}" → "${(centerData as any)[key]}"`)
         }
       })
 

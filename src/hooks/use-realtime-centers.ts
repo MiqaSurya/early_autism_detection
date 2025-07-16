@@ -187,7 +187,7 @@ export function useRealtimeCenters({
     } catch (error) {
       console.error('❌ Failed to setup real-time subscription:', error)
       setIsConnected(false)
-      setError(error instanceof Error ? error.message : 'Failed to setup subscription')
+      setError((error as Error)?.message || 'Failed to setup subscription')
     }
   }, [enabled, onCenterAdded, onCenterUpdated, onCenterDeleted, retryCount, cleanup])
 

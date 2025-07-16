@@ -186,10 +186,11 @@ export const performance = {
     window.addEventListener('load', () => {
       try {
         // Check if performance.getEntriesByType is available
-        if (typeof performance !== 'undefined' &&
-            typeof performance.getEntriesByType === 'function') {
+        if (typeof window !== 'undefined' &&
+            typeof window.performance !== 'undefined' &&
+            typeof window.performance.getEntriesByType === 'function') {
 
-          const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+          const navigation = window.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
           if (navigation) {
             trackEvent.performanceMetric('page_load_time', navigation.loadEventEnd - navigation.fetchStart)
             trackEvent.performanceMetric('dom_content_loaded', navigation.domContentLoadedEventEnd - navigation.fetchStart)
@@ -199,8 +200,10 @@ export const performance = {
           console.debug('Performance API not fully supported, skipping detailed metrics')
 
           // Simple fallback using performance.now() if available
-          if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-            const loadTime = performance.now()
+          if (typeof window !== 'undefined' &&
+              typeof window.performance !== 'undefined' &&
+              typeof window.performance.now === 'function') {
+            const loadTime = window.performance.now()
             trackEvent.performanceMetric('page_load_time_fallback', loadTime)
           }
         }

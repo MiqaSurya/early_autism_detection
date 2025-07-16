@@ -535,10 +535,7 @@ export default function GeoapifyLocationFinder() {
               <div className="flex items-center gap-1 text-blue-600">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span>
-                  {connectionType === 'websocket' ? 'Real-time sync' :
-                   connectionType === 'polling' ? 'Auto-refresh' :
-                   connectionType === 'manual' ? 'Manual refresh only' :
-                   'Connected'}
+                  {connectionType === 'manual' ? 'Manual refresh only' : 'Connected'}
                 </span>
                 {lastUpdate && (
                   <span className="text-gray-500">

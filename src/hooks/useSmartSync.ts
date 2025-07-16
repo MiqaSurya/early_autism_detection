@@ -172,10 +172,10 @@ export function useSmartSync({
     } catch (error) {
       console.error(`WebSocket setup failed for ${table}:`, error)
       setIsConnected(false)
-      setError(error instanceof Error ? error.message : 'WebSocket setup failed')
-      
+      setError((error as Error)?.message || 'WebSocket setup failed')
+
       if (onError) {
-        onError(error)
+        onError?.(error)
       }
       
       // Fallback to polling immediately

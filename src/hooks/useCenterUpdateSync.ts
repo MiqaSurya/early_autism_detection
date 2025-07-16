@@ -265,7 +265,7 @@ export function useCenterUpdateSync({
         error: error instanceof Error ? error.message : 'WebSocket setup failed'
       }))
       
-      if (onErrorRef.current) onErrorRef.current(error)
+      if (onErrorRef.current) onErrorRef.current?.(error)
       startPolling() // Immediate fallback
     }
   }, [enableRealtime, status.retryCount, maxRetries, cleanup, startPolling, stopPolling]) // Removed unstable dependencies
