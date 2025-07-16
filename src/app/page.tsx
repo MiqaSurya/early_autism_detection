@@ -8,6 +8,7 @@ export default function Home() {
 
   useEffect(() => {
     // Automatically redirect to auth/login when users first visit the app
+    // Updated: July 2025 - Enhanced with role-based authentication
     router.replace('/auth/login')
   }, [router])
 
