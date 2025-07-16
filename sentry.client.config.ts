@@ -1,5 +1,5 @@
-// Only initialize Sentry in production to avoid development warnings
-if (process.env.NODE_ENV === 'production') {
+// Temporarily disable Sentry to fix OpenTelemetry deployment issues
+if (false && process.env.NODE_ENV === 'production') {
   const Sentry = require('@sentry/nextjs')
 
   Sentry.init({

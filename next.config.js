@@ -1,15 +1,10 @@
 /** @type {import('next').NextConfig} */
-// Temporarily disable Sentry in development to eliminate warnings
-const { withSentryConfig } = process.env.NODE_ENV === 'production'
-  ? require('@sentry/nextjs')
-  : { withSentryConfig: (config) => config }
+// Temporarily disable Sentry to fix OpenTelemetry deployment issues
+const { withSentryConfig } = { withSentryConfig: (config) => config }
 
 const nextConfig = {
-  // Enable experimental features for better performance
-  experimental: {
-    // Enable optimized package imports
-    optimizePackageImports: ['lucide-react'],
-  },
+  // Disable experimental features to fix deployment issues
+  experimental: {},
 
   // SWC configuration for JSX
   swcMinify: true,
@@ -164,10 +159,5 @@ const nextConfig = {
   },
 }
 
-// Export with conditional Sentry wrapping
-module.exports = process.env.NODE_ENV === 'production'
-  ? withSentryConfig(nextConfig, {
-      silent: true,
-      hideSourceMaps: true,
-    })
-  : nextConfig
+// Export without Sentry wrapping to fix deployment issues
+module.exports = nextConfig
