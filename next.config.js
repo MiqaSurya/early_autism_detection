@@ -36,6 +36,11 @@ const nextConfig = {
   // Static generation configuration
   staticPageGenerationTimeout: 120,
 
+  // Force all API routes to be dynamic to prevent static generation issues
+  async redirects() {
+    return []
+  },
+
   // Caching configuration
   async rewrites() {
     return [

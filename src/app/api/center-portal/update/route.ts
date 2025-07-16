@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+
 export async function PUT(request: NextRequest) {
   try {
     // Get session token from cookies (same as verify endpoint)
