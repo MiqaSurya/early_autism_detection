@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // Helper function to check admin authentication from headers
 function isAdminRequest(request: NextRequest): boolean {
   // Check for admin session in headers (sent from client)
