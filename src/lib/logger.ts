@@ -1,4 +1,12 @@
-import * as Sentry from '@sentry/nextjs'
+// Temporarily disable Sentry to fix deployment issues
+const Sentry = {
+  captureException: () => {},
+  captureMessage: () => {},
+  addBreadcrumb: () => {},
+  setContext: () => {},
+  setTag: () => {},
+  setUser: () => {}
+}
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
