@@ -60,6 +60,7 @@ export default function CenterEditPage() {
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [user, setUser] = useState<CenterUser | null>(null)
 
@@ -208,6 +209,72 @@ export default function CenterEditPage() {
     setFormData(prev => ({ ...prev, [name]: value }))
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+  }
+
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) return
+
+    setGeocoding(true)
+    try {
+      const response = await fetch(
+        `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`
+      )
+
+      if (!response.ok) {
+        throw new Error('Geocoding failed')
+      }
+
+      const data = await response.json()
+
+      if (data.features && data.features.length > 0) {
+        const location = data.features[0]
+        const lat = location.geometry.coordinates[1]
+        const lng = location.geometry.coordinates[0]
+
+        setFormData(prev => ({
+          ...prev,
+          latitude: lat.toString(),
+          longitude: lng.toString()
+        }))
+
+        toast({
+          title: "Location Found!",
+          description: "Coordinates have been automatically updated based on your address.",
+        })
+      } else {
+        toast({
+          title: "Location Not Found",
+          description: "No location found for this address. Please try a more specific address or enter coordinates manually.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error)
+      toast({
+        title: "Geocoding Failed",
+        description: "Unable to find coordinates for this address. Please enter them manually or try a different address.",
+        variant: "destructive",
+      })
+    } finally {
+      setGeocoding(false)
+    }
+  }
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+
+    // Debounce geocoding - auto-detect location after user stops typing for 1 second
+    if (value.trim().length > 10) {
+      const timeoutId = setTimeout(() => {
+        geocodeAddress(value)
+      }, 1000)
+
+      return () => clearTimeout(timeoutId)
     }
   }
 
@@ -368,18 +435,42 @@ export default function CenterEditPage() {
               </label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                {geocoding && (
+                  <Loader2 className="absolute right-3 top-3 h-5 w-5 animate-spin text-blue-500" />
+                )}
                 <textarea
                   name="address"
                   value={formData.address}
-                  onChange={handleInputChange}
+                  onChange={handleAddressChange}
                   rows={3}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none ${
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none ${
                     errors.address ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="Enter complete address"
+                  placeholder="Enter complete address (coordinates will be auto-detected)"
                 />
               </div>
               {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+              {geocoding && (
+                <p className="text-blue-600 text-xs mt-1 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Auto-detecting location...
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => geocodeAddress(formData.address)}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+                disabled={!formData.address.trim() || geocoding}
+              >
+                {geocoding ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Finding location...
+                  </>
+                ) : (
+                  <>📍 Get coordinates from address</>
+                )}
+              </button>
             </div>
 
             {/* Coordinates */}
