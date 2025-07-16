@@ -2,6 +2,8 @@
 
 A comprehensive web application for early autism screening using the M-CHAT-R (Modified Checklist for Autism in Toddlers - Revised) assessment tool. Built with Next.js, TypeScript, and Supabase.
 
+**🆕 Latest Update (July 2025):** Enhanced with role-based authentication, center portal management, and streamlined user experience.
+
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/MiqaSurya/early_autism_detection)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
