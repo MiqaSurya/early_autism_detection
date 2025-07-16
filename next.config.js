@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+// Temporarily disable Sentry in development to eliminate warnings
+const { withSentryConfig } = process.env.NODE_ENV === 'production'
+  ? require('@sentry/nextjs')
+  : { withSentryConfig: (config) => config }
+
 const nextConfig = {
   // Enable experimental features for better performance
   experimental: {
@@ -46,9 +51,29 @@ const nextConfig = {
   async headers() {
     const isDevelopment = process.env.NODE_ENV === 'development'
 
+    // In development, disable strict security headers to avoid MIME type issues
+    if (isDevelopment) {
+      return [
+        {
+          source: '/((?!_next/static|_next/image|favicon.ico).*)',
+          headers: [
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY',
+            },
+            {
+              key: 'Referrer-Policy',
+              value: 'origin-when-cross-origin',
+            },
+          ],
+        },
+      ]
+    }
+
+    // Production security headers
     return [
       {
-        source: '/(.*)',
+        source: '/((?!_next/static|_next/image|favicon.ico).*)',
         headers: [
           {
             key: 'X-Frame-Options',
@@ -72,7 +97,7 @@ const nextConfig = {
           },
           {
             key: 'Strict-Transport-Security',
-            value: isDevelopment ? '' : 'max-age=31536000; includeSubDomains; preload',
+            value: 'max-age=31536000; includeSubDomains; preload',
           },
           {
             key: 'Content-Security-Policy',
@@ -88,10 +113,9 @@ const nextConfig = {
               "base-uri 'self'",
               "form-action 'self'",
               "frame-ancestors 'none'",
-              isDevelopment ? "upgrade-insecure-requests" : "",
             ].filter(Boolean).join('; '),
           },
-        ].filter(header => header.value !== ''),
+        ],
       },
     ]
   },
@@ -106,6 +130,17 @@ const nextConfig = {
         net: false,
         tls: false,
       };
+    }
+
+    // Suppress OpenTelemetry warnings in development
+    if (dev) {
+      config.ignoreWarnings = [
+        { module: /node_modules\/@opentelemetry/ },
+        { module: /node_modules\/@sentry/ },
+        { module: /node_modules\/require-in-the-middle/ },
+        /Critical dependency: the request of a dependency is an expression/,
+        /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/,
+      ];
     }
 
     return config
@@ -124,4 +159,10 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+// Export with conditional Sentry wrapping
+module.exports = process.env.NODE_ENV === 'production'
+  ? withSentryConfig(nextConfig, {
+      silent: true,
+      hideSourceMaps: true,
+    })
+  : nextConfig

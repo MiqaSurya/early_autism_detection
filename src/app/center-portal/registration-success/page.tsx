@@ -1,128 +1,104 @@
+'use client'
+
+import React from 'react'
 import Link from 'next/link'
-import { CheckCircle, Clock, Mail, Shield } from 'lucide-react'
+import { LogoIcon } from '@/components/ui/logo'
+import { CheckCircle, Mail, Clock, ArrowRight } from 'lucide-react'
 
-export default function RegistrationSuccessPage() {
+export default function CenterRegistrationSuccessPage() {
   return (
-    <div className="max-w-2xl mx-auto text-center">
-      {/* Success Icon */}
-      <div className="flex justify-center mb-6">
-        <div className="bg-green-100 p-4 rounded-full">
-          <CheckCircle className="h-16 w-16 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100 text-center">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex justify-center mb-4">
+              <LogoIcon className="h-16 w-16" />
+            </div>
+            <div className="flex justify-center mb-4">
+              <CheckCircle className="h-16 w-16 text-green-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
+            <p className="text-gray-600">Your autism center has been registered successfully.</p>
+          </div>
+
+          {/* Success Message */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start space-x-3">
+              <Mail className="h-6 w-6 text-green-600 mt-0.5" />
+              <div className="text-left">
+                <h3 className="font-semibold text-green-800 mb-1">Email Verification Sent</h3>
+                <p className="text-green-700 text-sm">
+                  We've sent a verification email to your registered email address. Please check your inbox and click the verification link to activate your account.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Next Steps */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start space-x-3">
+              <Clock className="h-6 w-6 text-blue-600 mt-0.5" />
+              <div className="text-left">
+                <h3 className="font-semibold text-blue-800 mb-1">Admin Verification Required</h3>
+                <p className="text-blue-700 text-sm">
+                  After email verification, your center registration will be reviewed by our admin team. You'll receive a notification once your center is approved and ready to use.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* What's Next */}
+          <div className="text-left mb-6">
+            <h3 className="font-semibold text-gray-800 mb-3">What happens next?</h3>
+            <ol className="space-y-2 text-sm text-gray-600">
+              <li className="flex items-start">
+                <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">1</span>
+                Verify your email address
+              </li>
+              <li className="flex items-start">
+                <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">2</span>
+                Admin reviews your center registration
+              </li>
+              <li className="flex items-start">
+                <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">3</span>
+                Receive approval notification
+              </li>
+              <li className="flex items-start">
+                <span className="bg-blue-100 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold mr-3 mt-0.5">4</span>
+                Access your center dashboard
+              </li>
+            </ol>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            <Link
+              href="/center-portal/login"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors font-medium inline-flex items-center justify-center"
+            >
+              Go to Center Login
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Link>
+            
+            <Link
+              href="/"
+              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors font-medium inline-flex items-center justify-center"
+            >
+              Back to Home
+            </Link>
+          </div>
+
+          {/* Support */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-xs text-gray-500">
+              Need help? Contact our support team at{' '}
+              <a href="mailto:support@autismdetector.com" className="text-blue-600 hover:text-blue-800">
+                support@autismdetector.com
+              </a>
+            </p>
+          </div>
         </div>
-      </div>
-
-      {/* Header */}
-      <h1 className="text-3xl font-bold text-gray-900 mb-4">
-        Registration Submitted Successfully!
-      </h1>
-      <p className="text-xl text-gray-600 mb-8">
-        Thank you for registering your autism center with our platform.
-      </p>
-
-      {/* Status Cards */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-center mb-4">
-            <Clock className="h-8 w-8 text-blue-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-blue-900 mb-2">
-            Under Review
-          </h3>
-          <p className="text-blue-700">
-            Your center registration is currently being reviewed by our admin team. 
-            This process typically takes 1-2 business days.
-          </p>
-        </div>
-
-        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
-          <div className="flex items-center justify-center mb-4">
-            <Mail className="h-8 w-8 text-purple-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-purple-900 mb-2">
-            Email Confirmation
-          </h3>
-          <p className="text-purple-700">
-            You'll receive an email confirmation once your center has been verified 
-            and approved for listing.
-          </p>
-        </div>
-      </div>
-
-      {/* What's Next Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">What happens next?</h2>
-        
-        <div className="space-y-4 text-left">
-          <div className="flex items-start">
-            <div className="bg-blue-100 p-2 rounded-full mr-4 mt-1">
-              <Shield className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-900">Verification Process</h4>
-              <p className="text-gray-600">
-                Our team will verify your center information, business license, and credentials.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start">
-            <div className="bg-green-100 p-2 rounded-full mr-4 mt-1">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-900">Approval & Activation</h4>
-              <p className="text-gray-600">
-                Once approved, your center will be listed in our autism center locator and you'll gain access to the management dashboard.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start">
-            <div className="bg-purple-100 p-2 rounded-full mr-4 mt-1">
-              <Mail className="h-4 w-4 text-purple-600" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-900">Email Notification</h4>
-              <p className="text-gray-600">
-                You'll receive detailed instructions on how to access and manage your center profile.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-        <Link
-          href="/center-portal/login"
-          className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Try Signing In
-        </Link>
-        
-        <Link
-          href="/center-portal"
-          className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Back to Portal Home
-        </Link>
-      </div>
-
-      {/* Contact Info */}
-      <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Questions or Need Help?
-        </h3>
-        <p className="text-gray-600 mb-4">
-          If you have any questions about the registration process or need assistance, 
-          please don't hesitate to contact our support team.
-        </p>
-        <Link
-          href="/contact"
-          className="text-blue-600 hover:text-blue-800 font-medium underline"
-        >
-          Contact Support Team
-        </Link>
       </div>
     </div>
   )

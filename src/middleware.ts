@@ -69,6 +69,14 @@ export async function middleware(req: NextRequest) {
       })
     }
 
+    // Redirect root path to auth/login
+    if (req.nextUrl.pathname === '/') {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Middleware - Redirecting root to auth/login')
+      }
+      return NextResponse.redirect(new URL('/auth/login', req.url))
+    }
+
     // Protected routes
     if (req.nextUrl.pathname.startsWith('/dashboard')) {
       if (!session) {
@@ -82,16 +90,36 @@ export async function middleware(req: NextRequest) {
       }
     }
 
+
+
+    // Center portal routes - let them handle their own auth
+    if (req.nextUrl.pathname.startsWith('/center-portal')) {
+      // Allow center portal to handle its own authentication
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Middleware - Allowing center portal access (self-managed auth)')
+      }
+    }
+
     // Auth routes (when already logged in)
     if (req.nextUrl.pathname.startsWith('/auth')) {
       if (session) {
-        if (process.env.NODE_ENV === 'development') {
-          logger.debug('Redirecting authenticated user from auth page', {
-            component: 'middleware',
-            metadata: { path: req.nextUrl.pathname }
-          })
+        // Allow access to registration page even when logged in
+        // This allows users to register new accounts or help others register
+        if (req.nextUrl.pathname === '/auth/register') {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Middleware - Allowing registration page access (even when authenticated)')
+          }
+          // Continue to registration page
+        } else {
+          // For other auth pages (like login), redirect to dashboard
+          if (process.env.NODE_ENV === 'development') {
+            logger.debug('Redirecting authenticated user from auth page', {
+              component: 'middleware',
+              metadata: { path: req.nextUrl.pathname }
+            })
+          }
+          return NextResponse.redirect(new URL('/dashboard', req.url))
         }
-        return NextResponse.redirect(new URL('/dashboard', req.url))
       }
     }
 
@@ -111,5 +139,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/auth/:path*']
+  matcher: ['/', '/dashboard/:path*', '/auth/:path*', '/center-portal/:path*']
 }

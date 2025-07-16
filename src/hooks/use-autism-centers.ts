@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AutismCenter, LocationType } from '@/types/location'
 import { useToast } from '@/hooks/use-toast'
 import { geocodeAutismCenter } from '@/lib/geocoding'
@@ -10,13 +10,20 @@ interface UseAutismCentersOptions {
   type?: LocationType
   limit?: number
   autoFetch?: boolean
+  forceRefresh?: boolean
+  timestamp?: number
 }
 
 export function useAutismCenters(options: UseAutismCentersOptions = {}) {
   const [centers, setCenters] = useState<AutismCenter[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cached, setCached] = useState(false)
   const { toast } = useToast()
+
+  // Use useRef for cache to avoid hook order issues
+  const clientCacheRef = useRef(new Map<string, { data: AutismCenter[], timestamp: number }>())
+  const CACHE_DURATION = 3 * 60 * 1000 // 3 minutes
 
   const {
     latitude,
@@ -27,121 +34,92 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
     autoFetch = true
   } = options
 
-  // Fetch autism centers
+  // Manual fetch only - no debouncing needed
+
+  // Fetch autism centers - Manual only (no automatic calls)
   const fetchCenters = async (customOptions?: Partial<UseAutismCentersOptions>) => {
+    console.log('🔄 Manual fetchCenters called')
+
     const lat = customOptions?.latitude ?? latitude
     const lng = customOptions?.longitude ?? longitude
-    
+    const searchRadius = customOptions?.radius ?? radius
+    const searchType = customOptions?.type ?? type
+    const searchLimit = customOptions?.limit ?? limit
+
     if (!lat || !lng) {
       setError('Location coordinates are required')
       return
     }
 
+    // Create cache key
+    const cacheKey = `${lat}-${lng}-${searchRadius}-${searchType || 'all'}-${searchLimit}`
+
+    // Check client cache first (unless force refresh)
+    if (!customOptions?.forceRefresh) {
+      const cached = clientCacheRef.current.get(cacheKey)
+      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        console.log('📦 Using client cache (reducing egress)')
+        setCenters(cached.data)
+        setCached(true)
+        return cached.data
+      }
+    }
+
+    if (loading) {
+      console.log('🚫 Fetch already in progress')
+      return centers
+    }
+
     setLoading(true)
     setError(null)
-    
+    setCached(false)
+
     try {
       const params = new URLSearchParams({
         lat: lat.toString(),
         lng: lng.toString(),
-        radius: (customOptions?.radius ?? radius).toString(),
-        limit: (customOptions?.limit ?? limit).toString()
+        radius: searchRadius.toString(),
+        limit: searchLimit.toString()
       })
-      
-      if (customOptions?.type ?? type) {
-        params.append('type', customOptions?.type ?? type!)
-      }
-      
-      // Try API first, fallback to mock data
-      try {
-        const response = await fetch(`/api/autism-centers?${params}`)
 
-        if (response.ok) {
-          const data = await response.json()
-          setCenters(data)
-          return data // Return the fetched data
-        }
-      } catch (apiError) {
-        console.log('Autism centers API not available, using mock data')
+      if (searchType) {
+        params.append('type', searchType)
       }
 
-      // Fallback to mock data for testing (Malaysia-focused)
-      const mockCentersData = [
-        {
-          name: 'Early Autism Project Malaysia',
-          type: 'diagnostic' as const,
-          address: 'Universiti Malaya, Kuala Lumpur',
-          phone: '+60-3-7967-4422',
-          description: 'Comprehensive autism diagnostic and intervention services'
-        },
-        {
-          name: 'National Autism Society of Malaysia',
-          type: 'support' as const,
-          address: 'Petaling Jaya, Selangor',
-          phone: '+60-3-7877-3151',
-          description: 'Support services and advocacy for autism community'
-        },
-        {
-          name: 'Kiwanis Down Syndrome Foundation',
-          type: 'therapy' as const,
-          address: 'Bangsar, Kuala Lumpur',
-          phone: '+60-3-2282-3033',
-          description: 'Therapy and educational services for special needs'
-        },
-        {
-          name: 'Beautiful Gate Foundation',
-          type: 'education' as const,
-          address: 'Cheras, Kuala Lumpur',
-          phone: '+60-3-9132-2922',
-          description: 'Educational programs for children with special needs'
-        }
-      ]
-
-      // Geocode the mock centers to get real coordinates
-      const mockCenters: AutismCenter[] = []
-
-      for (let i = 0; i < mockCentersData.length; i++) {
-        const centerData = mockCentersData[i]
-        let centerLat = lat + (Math.random() - 0.5) * 0.1 // Fallback coordinates
-        let centerLng = lng + (Math.random() - 0.5) * 0.1
-
-        try {
-          const geocoded = await geocodeAutismCenter(centerData.name, centerData.address)
-          if (geocoded) {
-            centerLat = geocoded.latitude
-            centerLng = geocoded.longitude
-          }
-        } catch (error) {
-          console.log(`Could not geocode ${centerData.name}, using fallback coordinates`)
-        }
-
-        mockCenters.push({
-          id: `mock-${i + 1}`,
-          name: centerData.name,
-          type: centerData.type,
-          address: centerData.address,
-          latitude: centerLat,
-          longitude: centerLng,
-          phone: centerData.phone,
-          description: centerData.description,
-          verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+      // Add cache busting parameters for force refresh
+      if (customOptions?.forceRefresh) {
+        params.append('_refresh', 'true')
+        params.append('_t', Date.now().toString())
+        console.log('🔄 Force refresh requested - bypassing server cache')
       }
 
-      setCenters(mockCenters)
-      return mockCenters // Return the mock centers
+      const apiUrl = `/api/autism-centers?${params}`
+      console.log('🌐 Making API call to:', apiUrl)
+      const response = await fetch(apiUrl)
+
+      if (response.ok) {
+        const responseData = await response.json()
+        const data = responseData.centers || responseData // Handle both formats
+
+        console.log(`✅ Fetched ${data.length} centers (cached: ${responseData.cached || false})`)
+
+        // Store in client cache
+        clientCacheRef.current.set(cacheKey, { data, timestamp: Date.now() })
+
+        setCenters(data)
+        setCached(responseData.cached || false)
+        return data
+      } else {
+        throw new Error(`API request failed: ${response.status}`)
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
+      console.error('Error fetching centers:', errorMessage)
 
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load autism centers. Please try again.',
-      })
-      throw err // Re-throw the error so the caller can handle it
+      // Fallback to empty array on error
+      setCenters([])
+      throw err
     } finally {
       setLoading(false)
     }
@@ -165,7 +143,7 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
     }
 
     setLoading(true)
-    
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords
@@ -173,7 +151,7 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
       },
       (error) => {
         let errorMessage = 'Failed to get your location'
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = 'Location access denied. Please enable location services.'
@@ -185,10 +163,10 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
             errorMessage = 'Location request timed out.'
             break
         }
-        
+
         setError(errorMessage)
         setLoading(false)
-        
+
         toast({
           variant: 'destructive',
           title: 'Location Error',
@@ -203,21 +181,26 @@ export function useAutismCenters(options: UseAutismCentersOptions = {}) {
     )
   }
 
-  // Auto-fetch on mount if coordinates are provided
-  useEffect(() => {
-    if (autoFetch && latitude && longitude) {
-      fetchCenters()
-    }
-  }, [latitude, longitude, autoFetch])
+  // Auto-fetch completely disabled - manual refresh only
 
   return {
     centers,
     loading,
     error,
+    cached,
     fetchCenters,
     searchByType,
     searchByRadius,
     findNearbyWithLocation,
-    refreshCenters: () => fetchCenters()
+    refreshCenters: () => {
+      console.log('🔄 Regular refresh triggered')
+      if (latitude && longitude) {
+        fetchCenters()
+      }
+    },
+    clearCache: () => {
+      console.log('🗑️ Clearing client cache')
+      clientCacheRef.current.clear()
+    }
   }
 }

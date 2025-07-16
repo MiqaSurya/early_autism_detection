@@ -1,6 +1,8 @@
-import * as Sentry from '@sentry/nextjs'
+// Only initialize Sentry in production to avoid development warnings
+if (process.env.NODE_ENV === 'production') {
+  const Sentry = require('@sentry/nextjs')
 
-Sentry.init({
+  Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   
   // Performance monitoring
@@ -29,4 +31,5 @@ Sentry.init({
     
     return event
   },
-})
+  })
+}

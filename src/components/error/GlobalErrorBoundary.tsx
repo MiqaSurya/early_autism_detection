@@ -1,9 +1,13 @@
 'use client'
 
 import React from 'react'
-import * as Sentry from '@sentry/nextjs'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+// Only import Sentry in production to avoid development warnings
+const Sentry = process.env.NODE_ENV === 'production'
+  ? require('@sentry/nextjs')
+  : { captureException: () => {}, showReportDialog: () => {} }
 
 interface GlobalErrorBoundaryState {
   hasError: boolean

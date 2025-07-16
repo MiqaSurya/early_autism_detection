@@ -1,495 +1,553 @@
 'use client'
 
-import { useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, Mail, Lock, Eye, EyeOff, ArrowLeft, User, Phone, Globe, MapPin } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/ui/use-toast'
+import { LogoIcon } from '@/components/ui/logo'
+import { Eye, EyeOff, User, Mail, Lock, Building2, Phone, MapPin, ArrowLeft } from 'lucide-react'
+
+// Dynamically import the map component to avoid SSR issues
+const LocationMap = dynamic(() => import('@/components/LocationMap'), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 rounded-xl flex items-center justify-center">Loading map...</div>
+})
 
 export default function CenterRegisterPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  
   const [formData, setFormData] = useState({
-    // User account info
+    centerName: '',
+    contactPerson: '',
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: '',
-    
-    // Center info
-    centerName: '',
-    centerType: 'therapy',
-    address: '',
     phone: '',
-    website: '',
-    description: '',
-    contactPerson: '',
-    businessLicense: ''
+    address: '',
+    latitude: '',
+    longitude: '',
+    centerType: 'therapy',
+    description: ''
   })
   
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [step, setStep] = useState(1) // 1: Account, 2: Center Info
-  
-  const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }))
-  }
+  const centerTypes = [
+    { value: 'therapy', label: 'Therapy Center' },
+    { value: 'diagnostic', label: 'Diagnostic Center' },
+    { value: 'support', label: 'Support Center' },
+    { value: 'education', label: 'Educational Center' }
+  ]
 
-  const validateStep1 = () => {
-    if (!formData.email || !formData.password || !formData.confirmPassword || !formData.fullName) {
-      setError('Please fill in all required fields')
-      return false
-    }
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.centerName.trim()) newErrors.centerName = 'Center name is required'
+    if (!formData.contactPerson.trim()) newErrors.contactPerson = 'Contact person is required'
+    if (!formData.email.trim()) newErrors.email = 'Email is required'
+    if (!formData.password) newErrors.password = 'Password is required'
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return false
+      newErrors.confirmPassword = 'Passwords do not match'
     }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return false
+    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
+    if (!formData.address.trim()) newErrors.address = 'Address is required'
+    if (!formData.latitude.trim()) newErrors.latitude = 'Latitude is required'
+    if (!formData.longitude.trim()) newErrors.longitude = 'Longitude is required'
+
+    // Validate latitude and longitude ranges
+    if (formData.latitude.trim()) {
+      const lat = parseFloat(formData.latitude)
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        newErrors.latitude = 'Latitude must be between -90 and 90'
+      }
     }
-    return true
+    if (formData.longitude.trim()) {
+      const lng = parseFloat(formData.longitude)
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        newErrors.longitude = 'Longitude must be between -180 and 180'
+      }
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
-  const validateStep2 = () => {
-    if (!formData.centerName || !formData.address || !formData.contactPerson) {
-      setError('Please fill in all required center information')
-      return false
-    }
-    return true
-  }
-
-  const handleNextStep = () => {
-    setError('')
-    if (validateStep1()) {
-      setStep(2)
-    }
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
 
-    if (!validateStep2()) {
-      setLoading(false)
-      return
-    }
+    if (!validateForm()) return
+
+    setLoading(true)
 
     try {
-      // Step 1: Create user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Validate coordinates before sending
+      const lat = parseFloat(formData.latitude)
+      const lng = parseFloat(formData.longitude)
+
+      if (isNaN(lat) || isNaN(lng)) {
+        throw new Error('Invalid coordinates. Please ensure latitude and longitude are valid numbers.')
+      }
+
+      console.log('📤 Sending registration request:', {
         email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            role: 'center_manager'
-          }
-        }
+        centerName: formData.centerName,
+        centerType: formData.centerType,
+        latitude: lat,
+        longitude: lng,
+        hasPassword: !!formData.password
       })
 
-      if (authError) {
-        setError(authError.message)
-        return
+      // Call the center portal registration API
+      const response = await fetch('/api/center-portal/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          contactPerson: formData.contactPerson,
+          centerName: formData.centerName,
+          centerType: formData.centerType,
+          address: formData.address,
+          latitude: lat,
+          longitude: lng,
+          phone: formData.phone,
+          description: formData.description
+        })
+      })
+
+      const result = await response.json()
+
+      console.log('📥 Registration response:', {
+        ok: response.ok,
+        status: response.status,
+        result
+      })
+
+      if (!response.ok) {
+        console.error('❌ Registration failed:', result)
+        throw new Error(result.error || 'Registration failed')
       }
 
-      if (authData.user) {
-        // Step 2: Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: authData.user.id,
-            full_name: formData.fullName,
-            email: formData.email,
-            role: 'center_manager'
-          })
+      toast({
+        title: "Registration Successful!",
+        description: "Your center has been registered successfully. You can now log in.",
+      })
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-        }
+      // Redirect to success page
+      router.push('/center-portal/register/success')
+    } catch (error: any) {
+      console.error('Registration error:', error)
 
-        // Step 3: Use the register_center_manager function
-        const { data: centerResult, error: centerError } = await supabase
-          .rpc('register_center_manager', {
-            center_name: formData.centerName,
-            center_type: formData.centerType,
-            center_address: formData.address,
-            center_latitude: 0, // Will be geocoded later
-            center_longitude: 0, // Will be geocoded later
-            center_phone: formData.phone || null,
-            center_email: formData.email,
-            center_website: formData.website || null,
-            center_description: formData.description || null,
-            contact_person: formData.contactPerson,
-            business_license: formData.businessLicense || null
-          })
+      let errorMessage = error.message || "An error occurred during registration"
+      let errorTitle = "Registration Failed"
 
-        if (centerError) {
-          setError('Error registering center: ' + centerError.message)
-          return
-        }
-
-        // Success! Redirect to success page
-        router.push('/center-portal/registration-success')
+      if (error.message && error.message.includes('already registered')) {
+        errorTitle = "Email Already Registered"
+        errorMessage = "This email is already registered. Please use the center login page or try a different email address."
       }
-    } catch (err) {
-      setError('An unexpected error occurred')
-      console.error('Registration error:', err)
+
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+  }
+
+  const handleMapClick = (lat: number, lng: number) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat.toString(),
+      longitude: lng.toString()
+    }))
+  }
+
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) return
+
+    try {
+      const response = await fetch(
+        `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&apiKey=${process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY}`
+      )
+
+      if (!response.ok) throw new Error('Geocoding failed')
+
+      const data = await response.json()
+
+      if (data.features && data.features.length > 0) {
+        const [longitude, latitude] = data.features[0].geometry.coordinates
+        setFormData(prev => ({
+          ...prev,
+          latitude: latitude.toString(),
+          longitude: longitude.toString()
+        }))
+
+        toast({
+          title: "Location Found!",
+          description: "Coordinates have been automatically set based on your address.",
+        })
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error)
+      toast({
+        title: "Geocoding Failed",
+        description: "Could not find coordinates for this address. Please enter them manually.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+
+    // Debounce geocoding
+    if (value.trim().length > 10) {
+      const timeoutId = setTimeout(() => {
+        geocodeAddress(value)
+      }, 1000)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Back to Portal Home */}
-      <Link
-        href="/center-portal"
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Center Portal
-      </Link>
-
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex justify-center mb-4">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <Building2 className="h-8 w-8 text-blue-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Link href="/auth/login" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Link>
+            
+            <div className="flex justify-center mb-4">
+              <LogoIcon className="h-16 w-16" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Register Your Center</h1>
+            <p className="text-gray-600 text-sm">Join our network of autism support centers</p>
+            <div className="flex justify-center items-center mt-3 text-xs text-blue-600">
+              <span className="w-2 h-2 bg-red-400 rounded-full mr-1"></span>
+              <span className="w-2 h-2 bg-yellow-400 rounded-full mr-1"></span>
+              <span className="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
+              <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+              <span>Supporting Every Center's Mission</span>
+            </div>
           </div>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Register Your Autism Center
-        </h1>
-        <p className="text-gray-600">
-          Join our network of verified autism support centers
-        </p>
-      </div>
 
-      {/* Progress Indicator */}
-      <div className="flex items-center justify-center mb-8">
-        <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-            1
-          </div>
-          <span className="ml-2 text-sm font-medium">Account</span>
-        </div>
-        <div className={`w-16 h-1 mx-4 ${step >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-        <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-            2
-          </div>
-          <span className="ml-2 text-sm font-medium">Center Info</span>
-        </div>
-      </div>
-
-      {/* Registration Form */}
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <form onSubmit={step === 1 ? (e) => { e.preventDefault(); handleNextStep(); } : handleRegister} className="space-y-4">
-          
-          {step === 1 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-              
-              {/* Full Name */}
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Your full name"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address *
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="your-center@example.com"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password *
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Create a password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm Password *
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Confirm your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {step === 2 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Center Information</h3>
-              
-              {/* Center Name */}
-              <div>
-                <label htmlFor="centerName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Center Name *
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Center Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Center Name *
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
-                  id="centerName"
-                  name="centerName"
                   type="text"
+                  name="centerName"
                   value={formData.centerName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Your autism center name"
-                  required
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.centerName ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your center name"
                 />
               </div>
+              {errors.centerName && <p className="text-red-500 text-xs mt-1">{errors.centerName}</p>}
+            </div>
 
-              {/* Center Type */}
-              <div>
-                <label htmlFor="centerType" className="block text-sm font-medium text-gray-700 mb-1">
-                  Center Type *
-                </label>
-                <select
-                  id="centerType"
-                  name="centerType"
-                  value={formData.centerType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                  required
-                >
-                  <option value="therapy">Therapy Center</option>
-                  <option value="diagnostic">Diagnostic Center</option>
-                  <option value="support">Support Center</option>
-                  <option value="education">Educational Center</option>
-                </select>
-              </div>
-
-              {/* Address */}
-              <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                  Address *
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    rows={2}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Full address of your center"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Contact Person */}
-              <div>
-                <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Person *
-                </label>
+            {/* Contact Person */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contact Person *
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
-                  id="contactPerson"
-                  name="contactPerson"
                   type="text"
+                  name="contactPerson"
                   value={formData.contactPerson}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Primary contact person"
-                  required
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.contactPerson ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter contact person name"
                 />
               </div>
-
-              {/* Phone */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-              </div>
-
-              {/* Website */}
-              <div>
-                <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
-                  Website
-                </label>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    id="website"
-                    name="website"
-                    type="url"
-                    value={formData.website}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="https://your-center.com"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Brief description of your center and services"
-                />
-              </div>
-
-              {/* Business License */}
-              <div>
-                <label htmlFor="businessLicense" className="block text-sm font-medium text-gray-700 mb-1">
-                  Business License Number
-                </label>
-                <input
-                  id="businessLicense"
-                  name="businessLicense"
-                  type="text"
-                  value={formData.businessLicense}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Your business license number"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+              {errors.contactPerson && <p className="text-red-500 text-xs mt-1">{errors.contactPerson}</p>}
             </div>
-          )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            {step === 2 && (
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address *
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.email ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your email"
+                />
+              </div>
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number *
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.phone ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+            </div>
+
+            {/* Address */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address *
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleAddressChange}
+                  rows={2}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none ${
+                    errors.address ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter center address"
+                />
+              </div>
+              {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
               <button
                 type="button"
-                onClick={() => setStep(1)}
-                className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+                onClick={() => geocodeAddress(formData.address)}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                disabled={!formData.address.trim()}
               >
-                Back
+                📍 Get coordinates from address
               </button>
-            )}
-            
+            </div>
+
+            {/* Latitude and Longitude */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Latitude */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Latitude *
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="number"
+                    name="latitude"
+                    value={formData.latitude}
+                    onChange={handleInputChange}
+                    step="any"
+                    min="-90"
+                    max="90"
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      errors.latitude ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., 3.1390"
+                  />
+                </div>
+                {errors.latitude && <p className="text-red-500 text-xs mt-1">{errors.latitude}</p>}
+              </div>
+
+              {/* Longitude */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Longitude *
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="number"
+                    name="longitude"
+                    value={formData.longitude}
+                    onChange={handleInputChange}
+                    step="any"
+                    min="-180"
+                    max="180"
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      errors.longitude ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., 101.6869"
+                  />
+                </div>
+                {errors.longitude && <p className="text-red-500 text-xs mt-1">{errors.longitude}</p>}
+              </div>
+            </div>
+
+            {/* Interactive Map */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location on Map
+              </label>
+              <div className="border rounded-xl overflow-hidden">
+                <LocationMap
+                  latitude={parseFloat(formData.latitude) || 3.1390}
+                  longitude={parseFloat(formData.longitude) || 101.6869}
+                  onMapClick={handleMapClick}
+                  height="300px"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Click on the map to set your center's location, or enter coordinates manually above.
+              </p>
+            </div>
+
+            {/* Center Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Center Type *
+              </label>
+              <select
+                name="centerType"
+                value={formData.centerType}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+              >
+                {centerTypes.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password *
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.password ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Create a password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password *
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Confirm your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+              {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processing...' : step === 1 ? 'Next Step' : 'Register Center'}
+              {loading ? 'Registering...' : 'Register Center'}
             </button>
-          </div>
-        </form>
+          </form>
 
-        {/* Login Link */}
-        {step === 1 && (
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <Link
-                href="/center-portal/login"
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Sign in here
-              </Link>
+          {/* Help Section */}
+          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h4 className="font-semibold text-blue-800 text-sm mb-2">Already have an account?</h4>
+            <p className="text-blue-700 text-xs mb-3">
+              If you've already registered with this email (either as a user or center), please use the login page instead.
+            </p>
+            <Link
+              href="/center-portal/login"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold text-sm"
+            >
+              Go to Center Login →
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-gray-600 text-sm">
+              Need help?{' '}
+              <a href="mailto:support@autismdetector.com" className="text-blue-600 hover:text-blue-800 font-semibold">
+                Contact Support
+              </a>
             </p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

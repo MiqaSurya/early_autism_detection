@@ -179,16 +179,34 @@ export const trackEvent = {
 
 // Performance monitoring
 export const performance = {
-  // Measure page load time
+  // Measure page load time with fallback for unsupported environments
   measurePageLoad: () => {
     if (typeof window === 'undefined') return
-    
+
     window.addEventListener('load', () => {
-      const navigation = (performance as any).getEntriesByType('navigation')[0]
-      if (navigation) {
-        trackEvent.performanceMetric('page_load_time', navigation.loadEventEnd - navigation.fetchStart)
-        trackEvent.performanceMetric('dom_content_loaded', navigation.domContentLoadedEventEnd - navigation.fetchStart)
-        trackEvent.performanceMetric('first_paint', navigation.responseEnd - navigation.fetchStart)
+      try {
+        // Check if performance.getEntriesByType is available
+        if (typeof performance !== 'undefined' &&
+            typeof performance.getEntriesByType === 'function') {
+
+          const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+          if (navigation) {
+            trackEvent.performanceMetric('page_load_time', navigation.loadEventEnd - navigation.fetchStart)
+            trackEvent.performanceMetric('dom_content_loaded', navigation.domContentLoadedEventEnd - navigation.fetchStart)
+          }
+        } else {
+          // Fallback for environments without getEntriesByType
+          console.debug('Performance API not fully supported, skipping detailed metrics')
+
+          // Simple fallback using performance.now() if available
+          if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+            const loadTime = performance.now()
+            trackEvent.performanceMetric('page_load_time_fallback', loadTime)
+          }
+        }
+      } catch (error) {
+        console.debug('Performance measurement failed:', error)
+        // Silently fail - analytics shouldn't break the app
       }
     })
   },

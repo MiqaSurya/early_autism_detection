@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "backup": "node scripts/supabase-backup.js",
+    "backup:quick": "node scripts/supabase-backup.js --tables=profiles,children,assessments,autism_centers,center_users",
+    "backup:schema": "node scripts/supabase-backup.js --schema-only",
+    "backup:data": "node scripts/supabase-backup.js --data-only",
+    "restore": "node scripts/supabase-restore.js",
+    "restore:latest": "node scripts/supabase-restore.js --latest",
+    "restore:dry-run": "node scripts/supabase-restore.js --dry-run --latest",
+    "monitor": "node scripts/supabase-monitor.js",
+    "monitor:health": "node scripts/supabase-monitor.js --check-health",
+    "monitor:usage": "node scripts/supabase-monitor.js --usage-report",
+    "monitor:continuous": "node scripts/supabase-monitor.js --continuous",
+    "db:check": "node scripts/supabase-monitor.js --check-health",
+    "db:backup": "node scripts/supabase-backup.js",
+    "db:restore": "node scripts/supabase-restore.js --latest --dry-run"
+  }
+}

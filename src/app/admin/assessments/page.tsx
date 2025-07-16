@@ -32,7 +32,6 @@ import {
   type AssessmentStats,
   type QuestionnaireQuestion
 } from '@/lib/admin-db'
-import { supabase } from '@/lib/supabase'
 
 export default function AdminAssessmentsPage() {
   const [assessments, setAssessments] = useState<AdminAssessment[]>([])
@@ -74,50 +73,20 @@ export default function AdminAssessmentsPage() {
       setLoading(true)
       await loadAssessmentData()
       setLoading(false)
+      setIsRealTimeConnected(true) // Set as connected since we're using polling
     }
 
     initializeAssessments()
 
-    // Set up real-time subscriptions
-    const subscriptions: any[] = []
+    // Set up polling instead of WebSocket subscriptions
+    const pollingInterval = setInterval(() => {
+      console.log('Polling assessment data...')
+      loadAssessmentData()
+    }, 30000) // Poll every 30 seconds
 
-    // Subscribe to assessments table changes
-    const assessmentSubscription = supabase
-      .channel('admin-assessments-page')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'assessments' },
-        () => {
-          console.log('Assessment data changed, refreshing...')
-          loadAssessmentData()
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsRealTimeConnected(true)
-        }
-      })
-
-    subscriptions.push(assessmentSubscription)
-
-    // Subscribe to children table changes
-    const childrenSubscription = supabase
-      .channel('admin-assessments-children')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'children' },
-        () => {
-          console.log('Children data changed, refreshing assessments...')
-          loadAssessmentData()
-        }
-      )
-      .subscribe()
-
-    subscriptions.push(childrenSubscription)
-
-    // Cleanup subscriptions on unmount
+    // Cleanup function
     return () => {
-      subscriptions.forEach(subscription => {
-        supabase.removeChannel(subscription)
-      })
+      clearInterval(pollingInterval)
     }
   }, [loadAssessmentData])
 

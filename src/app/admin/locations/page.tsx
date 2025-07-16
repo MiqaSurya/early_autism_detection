@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getAllAutismCenters, createAutismCenter, updateAutismCenter, deleteAutismCenter, type AutismCenter, type CreateAutismCenterData } from '@/lib/admin-locations'
 import { useToast } from '@/hooks/use-toast'
+import { useAdminCenterSync } from '@/hooks/useAdminCenterSync'
 import dynamic from 'next/dynamic'
 
 // Dynamic import for map component to prevent SSR issues
@@ -45,6 +46,24 @@ export default function AdminLocationsPage() {
   const [mapCenter] = useState<[number, number]>([3.1390, 101.6869]) // KL coordinates
   const [selectedMapLocation, setSelectedMapLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  // Enhanced real-time sync for admin locations
+  const {
+    isConnected: syncConnected,
+    lastUpdate: syncLastUpdate,
+    error: syncError,
+    connectionType,
+    forceRefresh: syncForceRefresh
+  } = useAdminCenterSync({
+    onCentersUpdated: () => {
+      console.log('Admin Locations: Centers updated, refreshing data...')
+      loadCenters()
+    },
+    onError: (error) => {
+      console.error('Admin locations sync error:', error)
+    },
+    enableRealtime: true
+  })
 
   // Load centers on mount with timeout
   useEffect(() => {
@@ -287,8 +306,35 @@ export default function AdminLocationsPage() {
               </p>
             )}
           </div>
-          <div className="flex gap-3">
-            <Button onClick={loadCenters} variant="outline" className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {/* Enhanced Sync Status */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg">
+              {syncConnected ? (
+                <div className="flex items-center gap-1 text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">
+                    {connectionType === 'websocket' ? 'Real-time' : 'Auto-sync'}
+                  </span>
+                  {syncLastUpdate && (
+                    <span className="text-xs text-gray-500">
+                      • {syncLastUpdate.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              ) : syncError ? (
+                <div className="flex items-center gap-1 text-amber-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                  <span className="text-sm">Sync issue</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-gray-500">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                  <span className="text-sm">Connecting...</span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={loadCenters} variant="outline" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Refresh
             </Button>
@@ -317,6 +363,7 @@ export default function AdminLocationsPage() {
               <Plus className="h-4 w-4" />
               Add Center
             </Button>
+            </div>
           </div>
         </div>
 

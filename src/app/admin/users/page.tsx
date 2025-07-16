@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, Filter, MoreVertical, Mail, Calendar, Shield, RefreshCw, Users } from 'lucide-react'
 import { getAllUsers, getUserStats, type AdminUser, type UserStats } from '@/lib/admin-db'
-import { supabase } from '@/lib/supabase'
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -44,64 +43,20 @@ export default function AdminUsersPage() {
       setLoading(true)
       await loadUserData()
       setLoading(false)
+      setIsRealTimeConnected(true) // Set as connected since we're using polling
     }
 
     initializeUsersPage()
 
-    // Set up real-time subscriptions
-    const subscriptions: any[] = []
+    // Set up polling instead of WebSocket subscriptions
+    const pollingInterval = setInterval(() => {
+      console.log('Polling user data...')
+      loadUserData()
+    }, 45000) // Poll every 45 seconds for users
 
-    // Subscribe to children table changes (indicates new users)
-    const childrenSubscription = supabase
-      .channel('admin-users-children')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'children' },
-        () => {
-          console.log('Children data changed, refreshing users...')
-          loadUserData()
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsRealTimeConnected(true)
-        }
-      })
-
-    subscriptions.push(childrenSubscription)
-
-    // Subscribe to assessments table changes
-    const assessmentSubscription = supabase
-      .channel('admin-users-assessments')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'assessments' },
-        () => {
-          console.log('Assessment data changed, refreshing users...')
-          loadUserData()
-        }
-      )
-      .subscribe()
-
-    subscriptions.push(assessmentSubscription)
-
-    // Subscribe to profiles table changes if available
-    const profileSubscription = supabase
-      .channel('admin-users-profiles')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        () => {
-          console.log('Profile data changed, refreshing users...')
-          loadUserData()
-        }
-      )
-      .subscribe()
-
-    subscriptions.push(profileSubscription)
-
-    // Cleanup subscriptions on unmount
+    // Cleanup function
     return () => {
-      subscriptions.forEach(subscription => {
-        supabase.removeChannel(subscription)
-      })
+      clearInterval(pollingInterval)
     }
   }, [loadUserData])
 

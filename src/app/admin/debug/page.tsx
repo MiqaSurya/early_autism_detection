@@ -54,7 +54,7 @@ export default function AdminDebugPage() {
 
       } catch (error) {
         console.error('❌ Debug fetch error:', error)
-        setDebugData({ error: error.message })
+        setDebugData({ error: error instanceof Error ? error.message : 'Unknown error' })
       } finally {
         setLoading(false)
       }

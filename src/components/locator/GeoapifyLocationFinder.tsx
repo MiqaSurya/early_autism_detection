@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MapPin, Phone, Globe, Mail, Star, Navigation, Filter, Bookmark, BookmarkCheck } from 'lucide-react'
+import { MapPin, Phone, Globe, Mail, Star, Navigation, Filter, Bookmark, BookmarkCheck, RefreshCw } from 'lucide-react'
 import { useAutismCenters } from '@/hooks/use-autism-centers'
 import { useSavedLocations } from '@/hooks/use-saved-locations'
+// Removed useAutismCenterLocatorSync to prevent WebSocket errors
+import { getDebounceDelay } from '@/config/sync-config'
+import { useSyncMonitor } from '@/components/debug/SyncMonitor'
+// Removed useForceLocatorSync to prevent WebSocket errors
+
 import { AutismCenter, LocationType } from '@/types/location'
 import { calculateHaversineDistance, getCurrentLocation, findNearestCenter, sortCentersByDistance } from '@/lib/geoapify'
 import { searchHealthcarePOI, searchAutismRelatedPOI, POIPlace, formatDistance, testGeoapifyAPI } from '@/lib/poi'
@@ -16,6 +21,7 @@ import dynamic from 'next/dynamic'
 import GeoapifyAddressSearch from './GeoapifyAddressSearch'
 import NearestCenterCard from './NearestCenterCard'
 import QuickNearestButton from './QuickNearestButton'
+import RealtimeDebugPanel from '@/components/debug/RealtimeDebugPanel'
 
 // Dynamic import for Geoapify map component
 const GeoapifyMap = dynamic(() => import('@/components/map/GeoapifyMap'), {
@@ -58,12 +64,13 @@ export default function GeoapifyLocationFinder() {
   const [poiLoading, setPOILoading] = useState(false)
   const [previewRoute, setPreviewRoute] = useState<any>(null)
   const [selectedCenterForRoute, setSelectedCenterForRoute] = useState<AutismCenter | null>(null)
+  const [showDebugPanel, setShowDebugPanel] = useState(false)
 
   // Use autism centers hook
   const {
     centers,
     loading,
-    error,
+    error: centersError,
     fetchCenters
   } = useAutismCenters({
     latitude: userLocation?.[0],
@@ -73,46 +80,140 @@ export default function GeoapifyLocationFinder() {
     autoFetch: false
   })
 
-  // Handle filter changes - refetch centers when filters change
-  useEffect(() => {
-    if (userLocation && !loading) {
-      const refetchWithFilters = async () => {
-        if (showPOIPlaces) {
-          // Re-search autism centers with new filters
-          setPOILoading(true)
-          try {
-            console.log('🔄 Re-searching autism centers with updated filters...')
-            const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 30)
-            console.log(`✅ Filter update found ${places.length} autism facilities`)
-            setPOIPlaces(places)
-          } catch (error) {
-            console.error('Autism center re-search failed:', error)
-            // Fallback to regular centers
-            await fetchCenters({
-              latitude: userLocation[0],
-              longitude: userLocation[1],
-              radius: radiusFilter,
-              type: typeFilter === 'all' ? undefined : typeFilter
-            })
-            setShowPOIPlaces(false)
-            setShowNearestCenter(false)
-          } finally {
-            setPOILoading(false)
-          }
-        } else {
-          // Regular centers search
-          await fetchCenters({
-            latitude: userLocation[0],
-            longitude: userLocation[1],
-            radius: radiusFilter,
-            type: typeFilter === 'all' ? undefined : typeFilter
-          })
-        }
-      }
+  // Sync monitoring for debugging performance issues
+  const { SyncMonitorComponent } = useSyncMonitor()
 
-      refetchWithFilters()
+  // Polling system disabled - no automatic refresh
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // No automatic data fetch - users must manually refresh
+  // Initial data fetch disabled to prevent automatic refreshing
+  useEffect(() => {
+    // Cleanup function (no interval to clear)
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+      setIsPolling(false)
     }
-  }, [radiusFilter, typeFilter])
+  }, [])
+
+  // Manual refresh function - only triggered by user button click
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(0)
+  const [refreshStatus, setRefreshStatus] = useState<string>('')
+  const REFRESH_DEBOUNCE_MS = 1000 // Reduced to 1 second for better UX
+
+  const handleRefresh = async () => {
+    const now = Date.now()
+    if (now - lastRefreshTime < REFRESH_DEBOUNCE_MS) {
+      console.log('🚫 Refresh debounced - too frequent')
+      setRefreshStatus('Please wait before refreshing again')
+      setTimeout(() => setRefreshStatus(''), 2000)
+      return
+    }
+    setLastRefreshTime(now)
+
+    if (!userLocation) {
+      console.log('🚫 No user location for refresh')
+      setRefreshStatus('Please enable location first')
+      setTimeout(() => setRefreshStatus(''), 3000)
+      return
+    }
+
+    console.log('🔄 Manual refresh triggered by user')
+    setSyncError(null)
+    setRefreshStatus('Refreshing centers...')
+
+    try {
+      await fetchCenters({
+        latitude: userLocation[0],
+        longitude: userLocation[1],
+        radius: radiusFilter,
+        type: typeFilter === 'all' ? undefined : typeFilter,
+        forceRefresh: true // Force refresh to bypass cache
+      })
+
+      setLastUpdate(new Date())
+      setRefreshStatus('Centers refreshed successfully!')
+      console.log('✅ Manual refresh complete')
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setRefreshStatus(''), 3000)
+
+    } catch (error) {
+      console.error('❌ Manual refresh error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Manual refresh failed'
+      setSyncError(errorMessage)
+      setRefreshStatus(`Refresh failed: ${errorMessage}`)
+      setTimeout(() => setRefreshStatus(''), 5000)
+    }
+  }
+
+  // Sync status for compatibility with existing UI
+  const isConnected = !syncError // Connected if no errors
+  const connectionType = 'manual' // Manual refresh only
+  const retry = handleRefresh
+
+  // Removed useForceLocatorSync to prevent WebSocket connection attempts
+  // Simple polling system above handles all sync needs
+
+  // Auto-refresh is now handled automatically by the enhanced sync system
+
+
+
+  // Auto-refresh disabled - users can manually refresh when needed
+
+  // Filter change auto-refresh disabled - users must manually refresh after changing filters
+  // useEffect(() => {
+  //   // Only refetch if we have a user location and filters have actually changed
+  //   if (!userLocation || loading) return
+
+  //   // Debounce the filter changes to prevent excessive API calls
+  //   const timeoutId = setTimeout(async () => {
+  //     const refetchWithFilters = async () => {
+  //       if (showPOIPlaces) {
+  //         // Re-search autism centers with new filters
+  //         setPOILoading(true)
+  //         try {
+  //           console.log('🔄 Re-searching autism centers with updated filters...')
+  //           const places = await searchAutismRelatedPOI(userLocation[0], userLocation[1], radiusFilter * 1000, 30)
+  //           console.log(`✅ Filter update found ${places.length} autism facilities`)
+  //           setPOIPlaces(places)
+  //         } catch (error) {
+  //           console.error('Autism center re-search failed:', error)
+  //           // Fallback to regular centers
+  //           await fetchCenters({
+  //             latitude: userLocation[0],
+  //             longitude: userLocation[1],
+  //             radius: radiusFilter,
+  //             type: typeFilter === 'all' ? undefined : typeFilter
+  //           })
+  //           setShowPOIPlaces(false)
+  //           setShowNearestCenter(false)
+  //         } finally {
+  //           setPOILoading(false)
+  //         }
+  //       } else {
+  //         // Regular centers search
+  //         await fetchCenters({
+  //           latitude: userLocation[0],
+  //           longitude: userLocation[1],
+  //           radius: radiusFilter,
+  //           type: typeFilter === 'all' ? undefined : typeFilter
+  //         })
+  //       }
+  //     }
+
+  //     await refetchWithFilters()
+  //   }, getDebounceDelay('FILTER_CHANGES')) // Use centralized debounce config
+
+  //   // Cleanup timeout on dependency change
+  //   return () => clearTimeout(timeoutId)
+  // }, [radiusFilter, typeFilter, userLocation, showPOIPlaces]) // Disabled to prevent auto-refresh
 
   const handleFindNearby = useCallback(async () => {
     setIsLocating(true)
@@ -127,9 +228,9 @@ export default function GeoapifyLocationFinder() {
       const location = await getCurrentLocation()
       finalLat = location.lat
       finalLon = location.lon
-      console.log('✅ Got user location:', { lat: finalLat, lon: finalLon })
+      console.debug('✅ Got user location:', { lat: finalLat, lon: finalLon })
     } catch (error) {
-      console.log('⚠️ Could not get user location, using KL default:', error)
+      console.debug('⚠️ Could not get user location, using KL default:', error)
       setLocationError('Using Kuala Lumpur as default location. You can search for your address or click "Use My Location" to try again.')
     }
 
@@ -137,32 +238,21 @@ export default function GeoapifyLocationFinder() {
     setUserLocation([finalLat, finalLon])
     setCurrentLocation([finalLat, finalLon])
 
-    // Always try to load regular autism centers first
-    console.log('🔍 Loading autism centers from database...')
-    try {
-      await fetchCenters({
-        latitude: finalLat,
-        longitude: finalLon,
-        radius: radiusFilter,
-        type: typeFilter === 'all' ? undefined : typeFilter
-      })
-      console.log('✅ Loaded autism centers from database')
-      // Show the full centers list by default
-      setShowNearestCenter(false)
-    } catch (centerError) {
-      console.error('❌ Failed to load centers from database:', centerError)
-    }
+    // Automatic loading disabled - users must manually refresh to see centers
+    console.log('📍 Location detected. Use refresh button to load centers.')
+    // Show the full centers list by default
+    setShowNearestCenter(false)
 
     // Skip automatic POI search for faster initial loading
     // Users can manually search if needed
     setIsLocating(false)
-  }, [fetchCenters, radiusFilter, typeFilter])
+  }, [radiusFilter, typeFilter]) // Removed fetchCenters dependency to prevent re-renders
 
   // Get user location and fetch centers on mount - optimized
   useEffect(() => {
     // Skip API test for faster loading
     handleFindNearby()
-  }, [handleFindNearby])
+  }, []) // Empty dependency array to run only once on mount
 
   const handleLocationSelect = async (location: { lat: number; lon: number; address: string }) => {
     setUserLocation([location.lat, location.lon])
@@ -170,21 +260,10 @@ export default function GeoapifyLocationFinder() {
     setSelectedLocation(location) // Store the selected location for pinpoint marker
     setLocationError(null)
 
-    // Always try to load regular autism centers first
-    console.log('🔍 Loading autism centers from database for selected location...')
-    try {
-      await fetchCenters({
-        latitude: location.lat,
-        longitude: location.lon,
-        radius: radiusFilter,
-        type: typeFilter === 'all' ? undefined : typeFilter
-      })
-      console.log('✅ Loaded autism centers from database for selected location')
-      // Show the full centers list by default
-      setShowNearestCenter(false)
-    } catch (centerError) {
-      console.error('❌ Failed to load centers from database:', centerError)
-    }
+    // Automatic loading disabled - users must manually refresh to see centers
+    console.log('📍 Location selected. Use refresh button to load centers.')
+    // Show the full centers list by default
+    setShowNearestCenter(false)
 
     // Automatically search for all autism centers at selected location
     // Skip automatic POI search for selected location to improve performance
@@ -307,19 +386,19 @@ export default function GeoapifyLocationFinder() {
     ? sortCentersByDistance({ lat: userLocation[0], lon: userLocation[1] }, centers)
     : centers.map(center => ({ ...center, distance: undefined }))
 
-  // Debug logging
-  console.log('🔍 Debug Info:', {
-    userLocation,
-    centersCount: centers.length,
-    centersWithDistanceCount: centersWithDistance.length,
-    poiPlacesCount: poiPlaces.length,
-    showPOIPlaces,
-    showNearestCenter,
-    showSavedLocations,
-    loading,
-    poiLoading,
-    isLocating
-  })
+  // Debug logging disabled to prevent console spam
+  // console.log('🔍 Debug Info:', {
+  //   userLocation,
+  //   centersCount: centers.length,
+  //   centersWithDistanceCount: centersWithDistance.length,
+  //   poiPlacesCount: poiPlaces.length,
+  //   showPOIPlaces,
+  //   showNearestCenter,
+  //   showSavedLocations,
+  //   loading,
+  //   poiLoading,
+  //   isLocating
+  // })
 
   // Convert filtered POI places (autism-specific) to AutismCenter format
   const poiAutismCenters: AutismCenter[] = poiPlaces.map(place => ({
@@ -398,6 +477,28 @@ export default function GeoapifyLocationFinder() {
               🎯 {showNearestCenter ? 'Show All Centers' : 'Show Nearest Only'}
             </Button>
 
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={loading || (Date.now() - lastRefreshTime < REFRESH_DEBOUNCE_MS)}
+              className="flex items-center gap-2"
+              title={
+                !userLocation
+                  ? "Please enable location first"
+                  : loading
+                    ? "Refreshing centers..."
+                    : "Click to refresh autism centers for your location"
+              }
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading
+                ? 'Refreshing...'
+                : centers.length === 0
+                  ? 'Load Centers'
+                  : 'Refresh'
+              }
+            </Button>
+
 
 
             {previewRoute && (
@@ -426,8 +527,78 @@ export default function GeoapifyLocationFinder() {
               : showNearestCenter
                 ? `Showing nearest autism center${allCentersWithDistance.length > 1 ? ` (${allCentersWithDistance.length} total found)` : ''}`
                 : `${allCentersWithDistance.length} autism centers found automatically`}
+          </div>
+
+          {/* Sync status */}
+          <div className="flex items-center gap-2 text-xs">
+            {isConnected ? (
+              <div className="flex items-center gap-1 text-blue-600">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span>
+                  {connectionType === 'websocket' ? 'Real-time sync' :
+                   connectionType === 'polling' ? 'Auto-refresh' :
+                   connectionType === 'manual' ? 'Manual refresh only' :
+                   'Connected'}
+                </span>
+                {lastUpdate && (
+                  <span className="text-gray-500">
+                    • Updated {lastUpdate.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            ) : syncError ? (
+              <div className="flex items-center gap-1 text-amber-600">
+                <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                <span>Connection issue</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={retry}
+                  className="h-4 px-1 text-xs text-amber-600 hover:text-amber-700"
+                  title="Retry connection"
+                >
+                  Retry
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugPanel(true)}
+                  className="h-4 px-1 text-xs text-amber-600 hover:text-amber-700"
+                  title="Open debug panel"
+                >
+                  Debug
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-gray-500">
+                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                <span>Manual refresh</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDebugPanel(true)}
+                  className="h-4 px-1 text-xs text-gray-600 hover:text-gray-700"
+                  title="Open debug panel"
+                >
+                  Debug
+                </Button>
+              </div>
+            )}
             {userLocation && !showSavedLocations && !showNearestCenter && !showPOIPlaces && !previewRoute && ` within ${radiusFilter}km`}
           </div>
+
+          {/* Refresh Status Message */}
+          {refreshStatus && (
+            <div className={`text-sm px-3 py-2 rounded-md ${
+              refreshStatus.includes('failed') || refreshStatus.includes('error')
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : refreshStatus.includes('success') || refreshStatus.includes('refreshed')
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+            }`}>
+              {refreshStatus}
+            </div>
+          )}
 
           {/* Quick Nearest Center Button */}
           {!showSavedLocations && allCentersWithDistance.length > 0 && (
@@ -501,13 +672,15 @@ export default function GeoapifyLocationFinder() {
       )}
 
       {/* Error Display */}
-      {(error || locationError) && (
+      {(centersError || syncError || locationError) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800 text-sm">
-            {error || locationError}
+            {centersError || syncError || locationError}
           </p>
         </div>
       )}
+
+
 
       {/* Map */}
       <div className="h-96 w-full rounded-lg overflow-hidden relative">
@@ -556,6 +729,26 @@ export default function GeoapifyLocationFinder() {
           </div>
         )}
       </div>
+
+      {/* Empty State - No Centers Loaded */}
+      {!showSavedLocations && !showNearestCenter && allCentersWithDistance.length === 0 && userLocation && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <div className="flex flex-col items-center space-y-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <MapPin className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900 mb-1">Ready to Find Autism Centers</h3>
+              <p className="text-blue-700 text-sm mb-3">
+                Click the "Load Centers" button above to find autism centers near your location.
+              </p>
+              <p className="text-blue-600 text-xs">
+                📍 Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)} • Radius: {radiusFilter}km
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* All Autism Centers List */}
       {!showSavedLocations && !showNearestCenter && allCentersWithDistance.length > 0 && (
@@ -913,6 +1106,15 @@ export default function GeoapifyLocationFinder() {
           )}
         </div>
       )}
+
+      {/* Debug Panel */}
+      <RealtimeDebugPanel
+        isOpen={showDebugPanel}
+        onClose={() => setShowDebugPanel(false)}
+      />
+
+      {/* Sync Monitor for performance debugging */}
+      <SyncMonitorComponent />
     </div>
   )
 }

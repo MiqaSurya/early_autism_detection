@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-07-15T00:14:41.104Z",
+  "status": "healthy",
+  "checks": {
+    "connectivity": {
+      "status": "passed"
+    },
+    "data_integrity": {
+      "status": "warning",
+      "orphaned_assessments": 0
+    }
+  },
+  "issues": [],
+  "recommendations": []
+}

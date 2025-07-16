@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ui/use-toast'
 import { LogoIcon } from '@/components/ui/logo'
-import { Eye, EyeOff, User, Mail, Lock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, User, Mail, Lock, CheckCircle, XCircle, ArrowLeft, Building2 } from 'lucide-react'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -381,6 +381,31 @@ export default function RegisterPage() {
                 )}
               </button>
             </form>
+
+            {/* Center Registration Option */}
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">or</span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Link
+                  href="/center-portal/register"
+                  className="w-full flex items-center justify-center px-4 py-3 border border-blue-300 rounded-xl text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors font-medium"
+                >
+                  <Building2 className="h-5 w-5 mr-2" />
+                  Register as Autism Center
+                </Link>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  Are you an autism center? Register to manage your center profile and connect with families.
+                </p>
+              </div>
+            </div>
 
             <div className="mt-6 text-center">
               <p className="text-gray-600">

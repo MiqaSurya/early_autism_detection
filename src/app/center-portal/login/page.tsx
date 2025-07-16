@@ -1,172 +1,208 @@
 'use client'
 
-import { useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/ui/use-toast'
+import { LogoIcon } from '@/components/ui/logo'
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Building2 } from 'lucide-react'
 
 export default function CenterLoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const router = useRouter()
+  const { toast } = useToast()
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  })
+  
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  
-  const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.email.trim()) newErrors.email = 'Email is required'
+    if (!formData.password) newErrors.password = 'Password is required'
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
+    
+    if (!validateForm()) return
 
+    setLoading(true)
+    
     try {
-      // Sign in the user
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Call the center portal login API
+      const response = await fetch('/api/center-portal/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
       })
 
-      if (authError) {
-        setError(authError.message)
-        return
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Login failed')
       }
 
-      if (authData.user) {
-        // Check if user has center_manager role
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authData.user.id)
-          .single()
+      toast({
+        title: "Login Successful!",
+        description: `Welcome back, ${result.user.contact_person}!`,
+      })
 
-        if (profileError) {
-          setError('Error checking user profile')
-          return
-        }
-
-        if (profile?.role !== 'center_manager') {
-          setError('Access denied. This portal is only for registered center managers.')
-          await supabase.auth.signOut()
-          return
-        }
-
-        // Redirect to center dashboard
-        router.push('/center-portal/dashboard')
-      }
-    } catch (err) {
-      setError('An unexpected error occurred')
+      // Redirect to center dashboard
+      router.push('/center-portal/dashboard')
+    } catch (error: any) {
+      console.error('Login error:', error)
+      toast({
+        title: "Login Failed",
+        description: error.message || "Invalid email or password",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
+  }
+
   return (
-    <div className="max-w-md mx-auto">
-      {/* Back to Portal Home */}
-      <Link
-        href="/center-portal"
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Center Portal
-      </Link>
-
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex justify-center mb-4">
-          <div className="bg-blue-100 p-3 rounded-full">
-            <Building2 className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Center Manager Sign In
-        </h1>
-        <p className="text-gray-600">
-          Access your autism center management dashboard
-        </p>
-      </div>
-
-      {/* Login Form */}
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <form onSubmit={handleLogin} className="space-y-4">
-          {/* Email Field */}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="your-center@example.com"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Password Field */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </form>
-
-        {/* Register Link */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Don't have an account?{' '}
-            <Link
-              href="/center-portal/register"
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Register your center
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Link href="/auth/login" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to User Login
             </Link>
-          </p>
+            
+            <div className="flex justify-center mb-4">
+              <LogoIcon className="h-16 w-16" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Center Portal Login</h1>
+            <p className="text-gray-600 text-sm">Access your autism center dashboard</p>
+            <div className="flex justify-center items-center mt-3 text-xs text-blue-600">
+              <Building2 className="h-4 w-4 mr-2" />
+              <span>For Autism Centers Only</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.email ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your center email"
+                />
+              </div>
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.password ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Signing in...' : 'Sign In to Center Portal'}
+            </button>
+          </form>
+
+          {/* Links */}
+          <div className="mt-6 space-y-4">
+            <div className="text-center">
+              <Link href="/auth/forgot-password" className="text-blue-600 hover:text-blue-800 text-sm">
+                Forgot your password?
+              </Link>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">New center?</span>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <Link
+                href="/center-portal/register"
+                className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 rounded-xl text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors font-medium"
+              >
+                <Building2 className="h-5 w-5 mr-2" />
+                Register Your Center
+              </Link>
+            </div>
+          </div>
+
+          {/* Support */}
+          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+            <p className="text-xs text-gray-500">
+              Need help with your center account?{' '}
+              <a href="mailto:support@autismdetector.com" className="text-blue-600 hover:text-blue-800">
+                Contact Support
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

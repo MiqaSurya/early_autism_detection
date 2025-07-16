@@ -257,10 +257,10 @@ export function getCurrentLocation(options: {
   retries?: number
 } = {}): Promise<{ lat: number; lon: number }> {
   const {
-    timeout = 20000, // Increased to 20 seconds
-    enableHighAccuracy = true,
-    maximumAge = 300000, // 5 minutes
-    retries = 2
+    timeout = 30000, // Increased to 30 seconds for better reliability
+    enableHighAccuracy = false, // Disabled for faster response
+    maximumAge = 600000, // 10 minutes - allow cached location
+    retries = 1 // Reduced retries to prevent long delays
   } = options
 
   return new Promise((resolve, reject) => {
@@ -273,22 +273,18 @@ export function getCurrentLocation(options: {
 
     const attemptLocation = () => {
       attemptCount++
-      console.log(`🌍 Location attempt ${attemptCount}/${retries + 1}`)
+      console.debug(`🌍 Location attempt ${attemptCount}/${retries + 1}`)
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('✅ Location obtained:', {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          })
+          console.debug('✅ Location obtained')
           resolve({
             lat: position.coords.latitude,
             lon: position.coords.longitude
           })
         },
         (error) => {
-          console.error(`❌ Location attempt ${attemptCount} failed:`, error)
+          console.debug(`❌ Location attempt ${attemptCount} failed:`, error)
 
           // If we have retries left and it's a timeout error, try again with less accuracy
           if (attemptCount <= retries && error.code === 3) { // TIMEOUT

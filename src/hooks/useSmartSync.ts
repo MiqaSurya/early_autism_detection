@@ -14,9 +14,9 @@ export function useSmartSync({
   table,
   onUpdate,
   onError,
-  pollInterval = 60000, // Default 60 seconds (1 minute)
-  enableWebSocket = true,
-  maxRetries = 3
+  pollInterval = 120000, // Increased to 120 seconds (2 minutes) to reduce load
+  enableWebSocket = false, // Disabled to prevent WebSocket errors
+  maxRetries = 0 // No retries to prevent WebSocket attempts
 }: UseSmartSyncOptions) {
   const [connectionType, setConnectionType] = useState<'websocket' | 'polling' | 'disabled'>('disabled')
   const [isConnected, setIsConnected] = useState(false)
@@ -92,11 +92,17 @@ export function useSmartSync({
   }, [connectionType])
 
   const tryWebSocket = useCallback(() => {
-    if (!enableWebSocket || retryCount >= maxRetries) {
-      console.log('WebSocket disabled or max retries reached, using polling')
-      startPolling()
-      return
-    }
+    // Force disable WebSocket to prevent Cloudflare cookie errors
+    console.debug('WebSocket disabled globally to prevent Cloudflare issues, using polling')
+    startPolling()
+    return
+
+    // Original WebSocket code disabled:
+    // if (!enableWebSocket || retryCount >= maxRetries) {
+    //   console.log('WebSocket disabled or max retries reached, using polling')
+    //   startPolling()
+    //   return
+    // }
 
     cleanup()
     setConnectionType('websocket')
@@ -224,19 +230,41 @@ export function useSmartSync({
   const isWebSocketProblematic = useCallback(() => {
     // Check for common indicators of WebSocket issues
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
-    const isCloudflare = typeof document !== 'undefined' && 
-      document.cookie.includes('__cf_bm')
-    
-    return isCloudflare || userAgent.includes('HeadlessChrome')
+
+    // Check for Cloudflare indicators
+    const isCloudflare = typeof document !== 'undefined' && (
+      document.cookie.includes('__cf_bm') ||
+      document.cookie.includes('cf_clearance') ||
+      window.location.hostname.includes('.vercel.app') ||
+      window.location.hostname.includes('cloudflare')
+    )
+
+    // Check for other problematic environments
+    const isHeadless = userAgent.includes('HeadlessChrome')
+    const isBot = userAgent.includes('bot') || userAgent.includes('crawler')
+
+    if (isCloudflare) {
+      console.log('🔍 Cloudflare detected - WebSocket may be blocked, using polling mode')
+    }
+
+    return isCloudflare || isHeadless || isBot
   }, [])
+
+  // Store the result to avoid calling during render
+  const [isProblematic, setIsProblematic] = useState(false)
+
+  // Check once on mount
+  useEffect(() => {
+    setIsProblematic(isWebSocketProblematic())
+  }, [isWebSocketProblematic])
 
   // Auto-switch to polling if WebSocket is problematic
   useEffect(() => {
-    if (isWebSocketProblematic() && enableWebSocket) {
+    if (isProblematic && enableWebSocket) {
       console.log('Detected WebSocket-problematic environment, using polling')
       forcePolling()
     }
-  }, [isWebSocketProblematic, enableWebSocket, forcePolling])
+  }, [isProblematic, enableWebSocket, forcePolling])
 
   return {
     connectionType,
@@ -246,7 +274,7 @@ export function useSmartSync({
     forcePolling,
     forceWebSocket,
     triggerManualUpdate,
-    isWebSocketProblematic: isWebSocketProblematic()
+    isWebSocketProblematic: isProblematic
   }
 }
 
@@ -256,7 +284,7 @@ export function useAutoSync(table: string, onUpdate: (payload: any) => void) {
     table,
     onUpdate,
     enableWebSocket: true, // Will auto-fallback if problematic
-    pollInterval: 30000, // 30 second polling (reasonable interval)
+    pollInterval: 180000, // Increased to 180 seconds (3 minutes) for auto-sync
     maxRetries: 1, // Quick fallback to polling
     onError: (error) => {
       console.warn(`Auto-sync error for ${table}:`, error)

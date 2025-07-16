@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users, FileText, MapPin, TrendingUp, Activity, AlertCircle, RefreshCw } from 'lucide-react'
+import { Users, FileText, MapPin, TrendingUp, Activity, AlertCircle, RefreshCw, Building2 } from 'lucide-react'
+import Link from 'next/link'
 import { getAdminStats, getRecentActivities, getSystemAlerts, type AdminStats, type RecentActivity, type SystemAlert } from '@/lib/admin-db'
 
 export default function AdminDashboard() {
@@ -42,74 +43,19 @@ export default function AdminDashboard() {
       setLoading(true)
       await loadDashboardData()
       setLoading(false)
-
-      // Initialize Supabase client on client-side only
-      const { supabase } = await import('@/lib/supabase')
-
-      // Set up real-time subscriptions for live updates
-      const subscriptions: any[] = []
-
-      // Subscribe to new assessments
-      const assessmentSubscription = supabase
-        .channel('admin-assessments')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'assessments' },
-          () => {
-            loadDashboardData()
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            setIsRealTimeConnected(true)
-          }
-        })
-
-      subscriptions.push(assessmentSubscription)
-
-      // Subscribe to new children (indicates new users)
-      const childrenSubscription = supabase
-        .channel('admin-children')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'children' },
-          () => {
-            loadDashboardData()
-          }
-        )
-        .subscribe()
-
-      subscriptions.push(childrenSubscription)
-
-      // Subscribe to autism centers changes
-      const centersSubscription = supabase
-        .channel('admin-centers')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'autism_centers' },
-          () => {
-            loadDashboardData()
-          }
-        )
-        .subscribe()
-
-      subscriptions.push(centersSubscription)
-
-      // Return cleanup function
-      return () => {
-        subscriptions.forEach(subscription => {
-          supabase.removeChannel(subscription)
-        })
-      }
+      setIsRealTimeConnected(true) // Set as connected since we're using polling
     }
 
-    let cleanup: (() => void) | undefined
+    initializeDashboard()
 
-    initializeDashboard().then((cleanupFn) => {
-      cleanup = cleanupFn
-    })
+    // Set up polling instead of WebSocket subscriptions
+    const pollingInterval = setInterval(() => {
+      loadDashboardData()
+    }, 30000) // Poll every 30 seconds
 
+    // Cleanup function
     return () => {
-      if (cleanup) {
-        cleanup()
-      }
+      clearInterval(pollingInterval)
     }
   }, [loadDashboardData])
 
@@ -322,22 +268,27 @@ export default function AdminDashboard() {
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Link href="/admin/users" className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left block">
             <Users className="h-6 w-6 text-blue-500 mb-2" />
             <h3 className="font-medium text-gray-900">Manage Users</h3>
             <p className="text-sm text-gray-600">View and manage user accounts</p>
-          </button>
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left">
+          </Link>
+          <Link href="/admin/analytics" className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left block">
             <TrendingUp className="h-6 w-6 text-green-500 mb-2" />
             <h3 className="font-medium text-gray-900">View Analytics</h3>
             <p className="text-sm text-gray-600">Check platform usage statistics</p>
-          </button>
-          <button className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left">
+          </Link>
+          <Link href="/admin/locations" className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left block">
             <MapPin className="h-6 w-6 text-purple-500 mb-2" />
             <h3 className="font-medium text-gray-900">Manage Locations</h3>
             <p className="text-sm text-gray-600">Add or update autism centers</p>
-          </button>
+          </Link>
+          <Link href="/admin/center-users" className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left block">
+            <Building2 className="h-6 w-6 text-orange-500 mb-2" />
+            <h3 className="font-medium text-gray-900">Center Users</h3>
+            <p className="text-sm text-gray-600">Manage center portal accounts</p>
+          </Link>
         </div>
       </div>
     </div>

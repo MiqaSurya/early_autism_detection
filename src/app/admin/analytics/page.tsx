@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, Users, FileText, MapPin, Calendar, RefreshCw } from 'lucide-react'
 import { getAnalyticsData, type AnalyticsData } from '@/lib/admin-db'
-import { supabase } from '@/lib/supabase'
 
 export default function AdminAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
@@ -41,64 +40,20 @@ export default function AdminAnalyticsPage() {
       setLoading(true)
       await loadAnalyticsData()
       setLoading(false)
+      setIsRealTimeConnected(true) // Set as connected since we're using polling
     }
 
     initializeAnalytics()
 
-    // Set up real-time subscriptions
-    const subscriptions: any[] = []
+    // Set up polling instead of WebSocket subscriptions
+    const pollingInterval = setInterval(() => {
+      console.log('Polling analytics data...')
+      loadAnalyticsData()
+    }, 45000) // Poll every 45 seconds for analytics
 
-    // Subscribe to children table changes (user registrations)
-    const childrenSubscription = supabase
-      .channel('analytics-children')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'children' },
-        () => {
-          console.log('Children data changed, refreshing analytics...')
-          loadAnalyticsData()
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsRealTimeConnected(true)
-        }
-      })
-
-    subscriptions.push(childrenSubscription)
-
-    // Subscribe to assessments table changes
-    const assessmentSubscription = supabase
-      .channel('analytics-assessments')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'assessments' },
-        () => {
-          console.log('Assessment data changed, refreshing analytics...')
-          loadAnalyticsData()
-        }
-      )
-      .subscribe()
-
-    subscriptions.push(assessmentSubscription)
-
-    // Subscribe to autism centers changes
-    const centersSubscription = supabase
-      .channel('analytics-centers')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'autism_centers' },
-        () => {
-          console.log('Centers data changed, refreshing analytics...')
-          loadAnalyticsData()
-        }
-      )
-      .subscribe()
-
-    subscriptions.push(centersSubscription)
-
-    // Cleanup subscriptions on unmount
+    // Cleanup function
     return () => {
-      subscriptions.forEach(subscription => {
-        supabase.removeChannel(subscription)
-      })
+      clearInterval(pollingInterval)
     }
   }, [loadAnalyticsData])
 
