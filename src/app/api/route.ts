@@ -9,8 +9,9 @@ export const revalidate = 0
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'Early Autism Detector API is running',
+    message: 'Early Autism Detector API is running - Latest Version',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.1',
+    deploymentCheck: 'Force deployment trigger - ' + new Date().toISOString()
   })
 }
