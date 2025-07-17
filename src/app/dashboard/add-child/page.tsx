@@ -6,7 +6,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import { useToast } from '@/components/ui/use-toast'
 import { ArrowLeft, User, Calendar, Save } from 'lucide-react'
 import Link from 'next/link'
-import { SupabaseDebug } from '@/components/debug/supabase-debug'
+
 
 export default function AddChildPage() {
   const [loading, setLoading] = useState(false)
@@ -362,10 +362,7 @@ export default function AddChildPage() {
         </div>
       </div>
 
-      {/* Debug info - remove in production */}
-      <div className="mt-8">
-        <SupabaseDebug />
-      </div>
+
     </div>
   )
 }
