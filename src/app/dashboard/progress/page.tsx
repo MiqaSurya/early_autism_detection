@@ -477,7 +477,7 @@ export default function ProgressPage() {
 
               <div className="flex items-center gap-3">
                 <Link
-                  href="/dashboard/add-child"
+                  href={`/dashboard/add-child?edit=${selectedChildId}`}
                   className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all duration-300"
                 >
                   <Edit className="h-4 w-4" />

@@ -1,15 +1,16 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { useToast } from '@/components/ui/use-toast'
-import { ArrowLeft, User, Calendar, Save } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Save, Edit } from 'lucide-react'
 import Link from 'next/link'
-
 
 export default function AddChildPage() {
   const [loading, setLoading] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [childId, setChildId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     date_of_birth: '',
@@ -18,11 +19,50 @@ export default function AddChildPage() {
   })
 
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
   const { toast } = useToast()
+
+  // Check if we're editing an existing child
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (editId) {
+      setIsEditing(true)
+      setChildId(editId)
+      fetchChildData(editId)
+    }
+  }, [searchParams])
+
+  const fetchChildData = async (id: string) => {
+    try {
+      const { data: child, error } = await supabase
+        .from('children')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+
+      if (child) {
+        setFormData({
+          name: child.name || '',
+          date_of_birth: child.date_of_birth || '',
+          gender: child.gender || '',
+          additional_notes: child.additional_notes || ''
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching child data:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load child information. Please try again.'
+      })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,85 +76,120 @@ export default function AddChildPage() {
     }
 
     setLoading(true)
-    
-    try {
-      console.log('🔍 Starting child creation process...')
 
-      // Get the current user
+    try {
       const { data: user, error: userError } = await supabase.auth.getUser()
-      console.log('👤 User check:', { hasUser: !!user.user, userError: userError?.message })
 
       if (!user.user) {
         throw new Error('Not authenticated')
       }
 
-      // Check if user has a profile, create one if missing
-      console.log('🔍 Checking user profile...')
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.user.id)
-        .single()
+      if (isEditing && childId) {
+        // Update existing child
+        console.log('📝 Updating child with data:', {
+          name: formData.name,
+          date_of_birth: formData.date_of_birth,
+          gender: formData.gender || null,
+          additional_notes: formData.additional_notes || null
+        })
 
-      if (profileError && profileError.code === 'PGRST116') {
-        // Profile doesn't exist, create it
-        console.log('📝 Creating missing user profile...')
-        const { error: createProfileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.user.id,
-            display_name: user.user.email?.split('@')[0] || 'User',
-            email: user.user.email,
-            email_verified: true
+        const { data: child, error } = await supabase
+          .from('children')
+          .update({
+            name: formData.name,
+            date_of_birth: formData.date_of_birth,
+            gender: formData.gender || null,
+            additional_notes: formData.additional_notes || null,
+            updated_at: new Date().toISOString()
           })
+          .eq('id', childId)
+          .eq('parent_id', user.user.id)
+          .select()
+          .single()
 
-        if (createProfileError) {
-          console.error('❌ Error creating profile:', createProfileError)
-          throw new Error('Failed to create user profile. Please contact support.')
+        if (error) {
+          console.error('❌ Update error:', error)
+          throw error
         }
-        console.log('✅ User profile created successfully')
-      }
 
-      console.log('📝 Creating child with data:', {
-        parent_id: user.user.id,
-        name: formData.name,
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender || null,
-        additional_notes: formData.additional_notes || null
-      })
+        console.log('✅ Child profile updated successfully:', child)
 
-      const { data: child, error } = await supabase
-        .from('children')
-        .insert([{
+        toast({
+          title: 'Success! 🎉',
+          description: `${formData.name}'s profile has been updated successfully.`
+        })
+      } else {
+        // Create new child
+        console.log('🔍 Starting child creation process...')
+
+        // Check if user has a profile, create one if missing
+        console.log('🔍 Checking user profile...')
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.user.id)
+          .single()
+
+        if (profileError && profileError.code === 'PGRST116') {
+          // Profile doesn't exist, create it
+          console.log('📝 Creating missing user profile...')
+          const { error: createProfileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.user.id,
+              display_name: user.user.email?.split('@')[0] || 'User',
+              email: user.user.email,
+              email_verified: true
+            })
+
+          if (createProfileError) {
+            console.error('❌ Error creating profile:', createProfileError)
+            throw new Error('Failed to create user profile. Please contact support.')
+          }
+          console.log('✅ User profile created successfully')
+        }
+
+        console.log('📝 Creating child with data:', {
           parent_id: user.user.id,
           name: formData.name,
           date_of_birth: formData.date_of_birth,
           gender: formData.gender || null,
           additional_notes: formData.additional_notes || null
-        }])
-        .select()
-        .single()
+        })
 
-      console.log('💾 Database result:', { child, error: error?.message })
+        const { data: child, error } = await supabase
+          .from('children')
+          .insert([{
+            parent_id: user.user.id,
+            name: formData.name,
+            date_of_birth: formData.date_of_birth,
+            gender: formData.gender || null,
+            additional_notes: formData.additional_notes || null
+          }])
+          .select()
+          .single()
 
-      if (error) {
-        console.error('❌ Database error:', error)
-        throw error
+        console.log('💾 Database result:', { child, error: error?.message })
+
+        if (error) {
+          console.error('❌ Database error:', error)
+          throw error
+        }
+
+        console.log('✅ Child created successfully!')
+
+        toast({
+          title: 'Success!',
+          description: `${formData.name}'s profile has been created successfully!`
+        })
       }
-
-      console.log('✅ Child created successfully!')
-
-      toast({
-        title: 'Success!',
-        description: `${formData.name}'s profile has been created successfully!`
-      })
 
       // Redirect back to progress page
       router.push('/dashboard/progress')
     } catch (err) {
-      console.error('❌ Error creating child:', err)
+      console.error('❌ Error saving child:', err)
 
-      let errorMessage = 'Failed to create child profile'
+      let errorMessage = isEditing ? 'Failed to update child profile' : 'Failed to create child profile'
 
       if (err instanceof Error) {
         errorMessage = err.message
@@ -231,11 +306,22 @@ export default function AddChildPage() {
           
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <User className="h-6 w-6 text-blue-600" />
+              {isEditing ? (
+                <Edit className="h-6 w-6 text-blue-600" />
+              ) : (
+                <User className="h-6 w-6 text-blue-600" />
+              )}
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Add Child Profile</h1>
-              <p className="text-gray-600">Create a profile to start tracking development progress</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {isEditing ? 'Edit Child Profile' : 'Add Child Profile'}
+              </h1>
+              <p className="text-gray-600">
+                {isEditing
+                  ? 'Update your child\'s profile information'
+                  : 'Create a profile to start tracking development progress'
+                }
+              </p>
             </div>
           </div>
         </div>
@@ -337,12 +423,12 @@ export default function AddChildPage() {
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Creating...
+                    {isEditing ? 'Updating...' : 'Creating...'}
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Create Profile
+                    {isEditing ? 'Update Profile' : 'Create Profile'}
                   </>
                 )}
               </button>
