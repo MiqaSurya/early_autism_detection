@@ -1,4 +1,23 @@
 import { supabase } from './supabase'
+import { createClient } from '@supabase/supabase-js'
+
+// Function to create service role client (only available server-side)
+function getSupabaseAdmin() {
+  if (typeof window !== 'undefined') {
+    throw new Error('Service role client should not be used on client side')
+  }
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+}
 
 // Types for admin dashboard data
 export interface AdminStats {
@@ -968,6 +987,32 @@ export async function getAnalyticsData(timeRange: '7d' | '30d' | '90d' = '30d'):
 // Get all assessments with detailed information for admin management
 export async function getAllAssessments(): Promise<AdminAssessment[]> {
   try {
+    console.log('🔍 Fetching all assessments for admin...')
+
+    // First, let's check what tables exist and what data we have
+    const { data: assessmentCount, error: countError } = await supabase
+      .from('assessments')
+      .select('id', { count: 'exact', head: true })
+
+    console.log(`📊 Total assessments in database: ${assessmentCount?.length || 0}`)
+
+    if (countError) {
+      console.error('Error counting assessments:', countError)
+    }
+
+    // Try the fallback method first since join might be complex
+    return await getAllAssessmentsFallback()
+  } catch (error) {
+    console.error('Error in getAllAssessments:', error)
+    return []
+  }
+}
+
+// Fallback function for when join queries fail
+async function getAllAssessmentsFallback(): Promise<AdminAssessment[]> {
+  try {
+    console.log('🔄 Using fallback method for assessments...')
+
     // Get all assessments
     const { data: assessments, error: assessmentError } = await supabase
       .from('assessments')
@@ -979,7 +1024,9 @@ export async function getAllAssessments(): Promise<AdminAssessment[]> {
       return []
     }
 
-    // Get all children to map to assessments
+    console.log(`📊 Raw assessments from database:`, assessments)
+
+    // Get all children
     const { data: children, error: childrenError } = await supabase
       .from('children')
       .select('id, name, parent_id')
@@ -989,19 +1036,41 @@ export async function getAllAssessments(): Promise<AdminAssessment[]> {
       return []
     }
 
-    // Get user profiles for parent emails
+    console.log(`👶 Raw children from database:`, children)
+
+    // Get user profiles
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email')
+      .select('id, email, display_name')
+
+    if (profileError) {
+      console.error('Error fetching profiles:', profileError)
+    }
+
+    console.log(`👤 Raw profiles from database:`, profiles)
+
+    console.log(`📊 Fallback: ${assessments?.length || 0} assessments, ${children?.length || 0} children, ${profiles?.length || 0} profiles`)
+
+    if (!assessments || assessments.length === 0) {
+      console.log('⚠️ No assessments found in database')
+      return []
+    }
 
     const adminAssessments: AdminAssessment[] = assessments?.map(assessment => {
       const child = children?.find(c => c.id === assessment.child_id)
-      const parent = profiles?.find(p => p.id === child?.parent_id)
+      const profile = profiles?.find(p => p.id === child?.parent_id)
+
+      console.log(`🔗 Mapping assessment ${assessment.id}:`, {
+        assessment_child_id: assessment.child_id,
+        found_child: child,
+        child_parent_id: child?.parent_id,
+        found_profile: profile
+      })
 
       return {
         id: assessment.id,
         childName: child?.name || 'Unknown Child',
-        parentEmail: parent?.email || 'Unknown Parent',
+        parentEmail: profile?.email || profile?.display_name || 'Unknown Parent',
         status: assessment.status,
         riskLevel: assessment.risk_level,
         score: assessment.score,
@@ -1013,9 +1082,10 @@ export async function getAllAssessments(): Promise<AdminAssessment[]> {
       }
     }) || []
 
+    console.log(`✅ Final admin assessments:`, adminAssessments)
     return adminAssessments
   } catch (error) {
-    console.error('Error in getAllAssessments:', error)
+    console.error('Error in fallback getAllAssessments:', error)
     return []
   }
 }
@@ -1108,21 +1178,78 @@ export async function deleteAssessment(assessmentId: string): Promise<{ success:
   }
 }
 
+// Create questionnaire_questions table and initialize with default M-CHAT-R questions
+export async function createQuestionnaireTable(): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('🔧 Creating questionnaire_questions table...')
+
+    // Note: This requires admin/service role access to create tables
+    // In production, this should be done via Supabase migrations
+    const createTableSQL = `
+      -- Create questionnaire_questions table for admin-managed M-CHAT-R questions
+      CREATE TABLE IF NOT EXISTS questionnaire_questions (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        question_number INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        category TEXT NOT NULL CHECK (category IN ('social_communication', 'behavior_sensory')),
+        risk_answer TEXT NOT NULL CHECK (risk_answer IN ('yes', 'no')),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create index for better performance
+      CREATE INDEX IF NOT EXISTS idx_questionnaire_questions_active ON questionnaire_questions(is_active);
+      CREATE INDEX IF NOT EXISTS idx_questionnaire_questions_number ON questionnaire_questions(question_number);
+
+      -- Enable RLS (Row Level Security)
+      ALTER TABLE questionnaire_questions ENABLE ROW LEVEL SECURITY;
+
+      -- Create policy to allow all operations for authenticated users (admin access)
+      DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON questionnaire_questions;
+      CREATE POLICY "Allow all operations for authenticated users" ON questionnaire_questions
+        FOR ALL USING (auth.role() = 'authenticated');
+    `
+
+    // Execute the SQL (this might not work with regular user permissions)
+    const { error: createError } = await supabase.rpc('exec_sql', { sql: createTableSQL })
+
+    if (createError) {
+      console.error('Error creating table via RPC:', createError)
+      return { success: false, error: 'Cannot create table - requires admin access. Please run the SQL script manually in Supabase.' }
+    }
+
+    console.log('✅ Table created successfully')
+    return { success: true }
+  } catch (error) {
+    console.error('Error creating questionnaire table:', error)
+    return { success: false, error: 'Failed to create table' }
+  }
+}
+
 // Initialize default M-CHAT-R questions in database (run once)
 export async function initializeDefaultQuestions(): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('🔧 Initializing default M-CHAT-R questions...')
+
     // Check if questions already exist
     const { data: existingQuestions, error: checkError } = await supabase
       .from('questionnaire_questions')
       .select('id')
       .limit(1)
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = table doesn't exist
+    if (checkError) {
+      if (checkError.code === 'PGRST116' || checkError.message.includes('does not exist')) {
+        console.log('⚠️ Table does not exist. Please create it first.')
+        return { success: false, error: 'Table does not exist. Please create questionnaire_questions table first.' }
+      }
       console.error('Error checking existing questions:', checkError)
+      return { success: false, error: checkError.message }
     }
 
     // If questions exist, don't initialize again
     if (existingQuestions && existingQuestions.length > 0) {
+      console.log('✅ Questions already exist')
       return { success: true }
     }
 
@@ -1179,42 +1306,30 @@ export async function initializeDefaultQuestions(): Promise<{ success: boolean; 
 // Get all questionnaire questions from database
 export async function getQuestionnaireQuestions(): Promise<QuestionnaireQuestion[]> {
   try {
-    // Try to get questions from database
-    const { data: questions, error } = await supabase
-      .from('questionnaire_questions')
-      .select('*')
-      .eq('is_active', true)
-      .order('question_number', { ascending: true })
+    console.log('🔍 Fetching questionnaire questions via API...')
 
-    if (error) {
-      console.error('Error fetching questions from database:', error)
+    const response = await fetch('/api/admin/questions', {
+      method: 'GET',
+    })
 
-      // If table doesn't exist, initialize default questions
-      if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-        console.log('Questions table not found, using default questions')
-        await initializeDefaultQuestions()
-
-        // Try again after initialization
-        const { data: retryQuestions, error: retryError } = await supabase
-          .from('questionnaire_questions')
-          .select('*')
-          .eq('is_active', true)
-          .order('question_number', { ascending: true })
-
-        if (retryError) {
-          console.error('Error fetching questions after initialization:', retryError)
-          return getDefaultQuestions()
-        }
-
-        return mapDatabaseQuestions(retryQuestions || [])
-      }
-
+    if (!response.ok) {
+      console.error('API error:', response.status, response.statusText)
+      console.log('📝 API error, using default questions')
       return getDefaultQuestions()
     }
 
-    return mapDatabaseQuestions(questions || [])
+    const result = await response.json()
+
+    if (result.success && result.questions && result.questions.length > 0) {
+      console.log(`✅ Found ${result.questions.length} questions via API`)
+      return mapDatabaseQuestions(result.questions)
+    }
+
+    console.log('📝 No questions found via API, using default questions')
+    return getDefaultQuestions()
   } catch (error) {
     console.error('Error in getQuestionnaireQuestions:', error)
+    console.log('📝 Exception occurred, using default questions')
     return getDefaultQuestions()
   }
 }
@@ -1267,55 +1382,29 @@ export async function addQuestion(questionData: {
   riskAnswer: 'yes' | 'no'
 }): Promise<{ success: boolean; error?: string; question?: QuestionnaireQuestion }> {
   try {
-    // Get the next question number
-    const { data: existingQuestions, error: countError } = await supabase
-      .from('questionnaire_questions')
-      .select('question_number')
-      .order('question_number', { ascending: false })
-      .limit(1)
+    console.log('🔄 Adding question via API:', questionData)
 
-    if (countError && countError.code !== 'PGRST116') {
-      console.error('Error getting question count:', countError)
-      return { success: false, error: countError.message }
+    const response = await fetch('/api/admin/questions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(questionData)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error('API error:', result)
+      return { success: false, error: result.error || 'Failed to add question' }
     }
 
-    const nextQuestionNumber = existingQuestions && existingQuestions.length > 0
-      ? existingQuestions[0].question_number + 1
-      : 1
-
-    const newQuestion = {
-      question_number: nextQuestionNumber,
-      text: questionData.text,
-      category: questionData.category,
-      risk_answer: questionData.riskAnswer,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+    if (result.success && result.question) {
+      console.log('✅ Question added successfully:', result.question)
+      return { success: true, question: result.question }
+    } else {
+      return { success: false, error: result.error || 'Failed to add question' }
     }
-
-    const { data, error } = await supabase
-      .from('questionnaire_questions')
-      .insert([newQuestion])
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error adding question:', error)
-      return { success: false, error: error.message }
-    }
-
-    const question: QuestionnaireQuestion = {
-      id: data.id,
-      questionNumber: data.question_number,
-      text: data.text,
-      category: data.category,
-      riskAnswer: data.risk_answer,
-      isActive: data.is_active,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    }
-
-    return { success: true, question }
   } catch (error) {
     console.error('Error in addQuestion:', error)
     return { success: false, error: 'Failed to add question' }
@@ -1333,26 +1422,29 @@ export async function updateQuestion(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const updateData: any = {
-      updated_at: new Date().toISOString()
+    console.log('🔄 Updating question via API:', questionId, updates)
+
+    const response = await fetch('/api/admin/questions', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ questionId, updates })
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error('API error:', result)
+      return { success: false, error: result.error || 'Failed to update question' }
     }
 
-    if (updates.text !== undefined) updateData.text = updates.text
-    if (updates.category !== undefined) updateData.category = updates.category
-    if (updates.riskAnswer !== undefined) updateData.risk_answer = updates.riskAnswer
-    if (updates.isActive !== undefined) updateData.is_active = updates.isActive
-
-    const { error } = await supabase
-      .from('questionnaire_questions')
-      .update(updateData)
-      .eq('id', questionId)
-
-    if (error) {
-      console.error('Error updating question:', error)
-      return { success: false, error: error.message }
+    if (result.success) {
+      console.log('✅ Question updated successfully')
+      return { success: true }
+    } else {
+      return { success: false, error: result.error || 'Failed to update question' }
     }
-
-    return { success: true }
   } catch (error) {
     console.error('Error in updateQuestion:', error)
     return { success: false, error: 'Failed to update question' }
@@ -1362,20 +1454,25 @@ export async function updateQuestion(
 // Delete question (soft delete by setting isActive to false)
 export async function deleteQuestion(questionId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
-      .from('questionnaire_questions')
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', questionId)
+    console.log('🗑️ Deleting question via API:', questionId)
 
-    if (error) {
-      console.error('Error deleting question:', error)
-      return { success: false, error: error.message }
+    const response = await fetch(`/api/admin/questions?id=${questionId}`, {
+      method: 'DELETE',
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      console.error('API error:', result)
+      return { success: false, error: result.error || 'Failed to delete question' }
     }
 
-    return { success: true }
+    if (result.success) {
+      console.log('✅ Question deleted successfully')
+      return { success: true }
+    } else {
+      return { success: false, error: result.error || 'Failed to delete question' }
+    }
   } catch (error) {
     console.error('Error in deleteQuestion:', error)
     return { success: false, error: 'Failed to delete question' }

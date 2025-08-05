@@ -137,7 +137,48 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // With ID-based fetching, we only need to update center_users table
+    // Also update the corresponding autism_centers entry if it exists to prevent duplicates
+    console.log('🔄 Checking for existing autism_centers entry to update...')
+
+    const { data: existingAutismCenter, error: checkError } = await supabase
+      .from('autism_centers')
+      .select('id')
+      .eq('center_user_id', user.id)
+      .single()
+
+    let autismCenterUpdated = false
+
+    if (!checkError && existingAutismCenter) {
+      console.log('📝 Updating existing autism_centers entry to prevent duplicates')
+
+      const { error: autismCenterUpdateError } = await supabase
+        .from('autism_centers')
+        .update({
+          name: centerName,
+          type: centerType,
+          address: address,
+          latitude: latitude,
+          longitude: longitude,
+          phone: phone,
+          email: email,
+          description: description || null,
+          contact_person: contactPerson,
+          verified: user.is_verified || false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('center_user_id', user.id)
+
+      if (autismCenterUpdateError) {
+        console.error('⚠️ Warning: Failed to update autism_centers entry:', autismCenterUpdateError)
+        // Don't fail the request, as center_users update was successful
+      } else {
+        autismCenterUpdated = true
+        console.log('✅ Successfully updated autism_centers entry')
+      }
+    } else {
+      console.log('📋 No existing autism_centers entry found (ID-based fetching will handle this)')
+    }
+
     console.log('✅ Center details updated successfully in center_users table')
     console.log('📊 ID-based fetching will automatically sync this data to user and admin sites')
 
@@ -147,9 +188,11 @@ export async function PUT(request: NextRequest) {
       user: updatedUser,
       sync_status: {
         center_users_updated: true,
+        autism_centers_updated: autismCenterUpdated,
         id_based_sync_enabled: true,
         visible_to_users: true,
-        visible_to_admin: true
+        visible_to_admin: true,
+        duplicate_prevention: autismCenterUpdated ? 'Applied' : 'Not needed'
       }
     })
 

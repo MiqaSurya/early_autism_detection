@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { BarChart3, Calendar, TrendingUp, TrendingDown, AlertCircle, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
@@ -104,7 +104,7 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
         <div className="flex items-center justify-center h-32">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -114,7 +114,7 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8">
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
         <div className="text-center py-8">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <p className="text-red-600">{error}</p>
@@ -124,12 +124,12 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8">
+    <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Assessment History</h2>
-        <Link 
+        <Link
           href="/dashboard/questionnaire"
-          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
         >
           <Plus className="h-4 w-4" />
           New Assessment
@@ -155,32 +155,38 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="h-8 w-8 text-blue-600" />
+            <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <BarChart3 className="h-6 w-6 text-blue-600" />
+                </div>
                 <div>
-                  <p className="text-sm text-blue-600">Total Assessments</p>
-                  <p className="text-2xl font-bold text-blue-900">{assessments.length}</p>
+                  <p className="text-sm text-gray-600">Total Assessments</p>
+                  <p className="text-2xl font-bold text-gray-900">{assessments.length}</p>
                 </div>
               </div>
             </div>
-            
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-green-600" />
+
+            <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
                 <div>
-                  <p className="text-sm text-green-600">Latest Score</p>
-                  <p className="text-2xl font-bold text-green-900">{assessments[0]?.score || 0}/20</p>
+                  <p className="text-sm text-gray-600">Latest Score</p>
+                  <p className="text-2xl font-bold text-gray-900">{assessments[0]?.score || 0}/20</p>
                 </div>
               </div>
             </div>
-            
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-8 w-8 text-purple-600" />
+
+            <div className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-purple-600" />
+                </div>
                 <div>
-                  <p className="text-sm text-purple-600">Last Assessment</p>
-                  <p className="text-lg font-bold text-purple-900">
+                  <p className="text-sm text-gray-600">Last Assessment</p>
+                  <p className="text-lg font-bold text-gray-900">
                     {assessments[0] ? format(new Date(assessments[0].completed_at), 'MMM dd, yyyy') : 'N/A'}
                   </p>
                 </div>
@@ -191,12 +197,12 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
           {/* Assessment Timeline */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Assessment Timeline</h3>
-            
+
             {assessments.map((assessment, index) => {
               const scoreChange = getScoreChange(index)
-              
+
               return (
-                <div key={assessment.id} className="border border-gray-200 rounded-lg p-6">
+                <div key={assessment.id} className="bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl p-6 shadow-lg">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -209,7 +215,7 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900 mb-1">
                         {assessment.score}/20
@@ -236,7 +242,7 @@ export function AssessmentHistory({ childId }: AssessmentHistoryProps) {
                     </div>
                   )}
 
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                     <h5 className="font-medium text-gray-900 mb-2">Recommended Action:</h5>
                     <p className="text-gray-700 text-sm">{assessment.notes}</p>
                   </div>

@@ -1,0 +1,193 @@
+@startuml M-CHAT-R_Assessment_Workflow
+!theme aws-orange
+title M-CHAT-R Assessment Detailed Workflow
+
+start
+:User Selects "Take Assessment";
+
+if (Child Profile Exists?) then (No)
+  :Create Child Profile;
+  :Fill Child Information;
+  :Save Child to Database;
+else (Yes)
+  :Select Existing Child;
+endif
+
+:Initialize Assessment Session;
+:Create Assessment Record in Database;
+note right: Status: 'in_progress'
+
+' Question Loop
+:Load M-CHAT-R Questions from Database;
+:Initialize Question Counter (1/20);
+
+repeat
+  :Display Current Question;
+  note right
+    Questions include:
+    • Social Communication (13 questions)
+    • Behavior/Sensory (7 questions)
+  end note
+  
+  :Show Yes/No Options;
+  :User Selects Answer;
+  
+  :Save Response to Database;
+  note left
+    Table: responses
+    Fields: assessment_id, question_id, answer
+  end note
+  
+  :Increment Question Counter;
+  :Update Progress Bar;
+  
+repeat while (More Questions? (< 20)) is (Yes)
+
+:All Questions Completed;
+
+' Scoring Process
+partition "Risk Score Calculation" {
+  :Retrieve All Responses;
+  :Initialize Risk Score = 0;
+  
+  repeat
+    :Get Next Response;
+    :Check Question Risk Answer;
+    
+    if (Question 2, 5, or 12?) then (Yes)
+      if (User Answer = "Yes"?) then (Yes)
+        :Add 1 to Risk Score;
+      endif
+    else (Other Questions)
+      if (User Answer = "No"?) then (Yes)
+        :Add 1 to Risk Score;
+      endif
+    endif
+    
+  repeat while (More Responses?) is (Yes)
+  
+  :Final Risk Score Calculated;
+}
+
+' Risk Level Determination
+switch (Risk Score?)
+case (0-2)
+  :Risk Level = "Low Risk";
+  :Interpretation = "No action needed";
+  :Recommendation = "Rescreen after 24 months if child < 24 months";
+  #LightGreen
+  
+case (3-7)
+  :Risk Level = "Medium Risk";
+  :Interpretation = "Some concerns detected";
+  :Recommendation = "Administer M-CHAT-R Follow-Up interview";
+  #Orange
+  
+case (8-20)
+  :Risk Level = "High Risk";
+  :Interpretation = "Significant concerns detected";
+  :Recommendation = "Immediate referral for autism evaluation";
+  :Suggest Autism Center Locator;
+  #Pink
+endswitch
+
+' Save Results
+:Update Assessment Record;
+note right
+  Fields updated:
+  • status = 'completed'
+  • score = calculated_score
+  • risk_level = determined_level
+  • completed_at = timestamp
+  • responses = all_answers
+end note
+
+:Generate Assessment Report;
+
+' Display Results
+partition "Results Display" {
+  :Show Risk Level with Color Coding;
+  :Display Score (X/20);
+  :Show Interpretation Text;
+  :Display Recommendations;
+  
+  if (High Risk?) then (Yes)
+    :Show "Find Autism Centers" Button;
+    :Display Emergency Resources;
+  endif
+  
+  :Show "Save Results" Option;
+  :Show "Share with Healthcare Provider" Option;
+}
+
+' User Actions on Results
+switch (User Action?)
+case (View Autism Centers)
+  :Redirect to Center Locator;
+  :Auto-filter for child's age group;
+  :Show nearest centers;
+  
+case (Save to Child Profile)
+  :Link Assessment to Child;
+  :Update Child's Assessment History;
+  :Add to Progress Tracking;
+  
+case (Take Another Assessment)
+  :Return to Assessment Start;
+  
+case (Return to Dashboard)
+  :Navigate to Main Dashboard;
+  :Update Dashboard Statistics;
+  
+case (Share Results)
+  :Generate PDF Report;
+  :Provide Sharing Options;
+  :Email/Download/Print;
+endswitch
+
+' Background Processes
+partition "System Updates" #LightBlue {
+  :Update User Statistics;
+  :Update Global Assessment Statistics;
+  :Update Risk Distribution Data;
+  :Trigger Analytics Refresh;
+  :Log Assessment Completion;
+}
+
+' Data Persistence
+partition "Database Operations" #LightCyan {
+  :Save Assessment Results;
+  :Update Child Profile;
+  :Create Assessment History Entry;
+  :Update Progress Milestones;
+  :Cache Results for Quick Access;
+}
+
+stop
+
+' Detailed Notes
+note bottom
+  **M-CHAT-R Scoring Algorithm:**
+  
+  **Risk Questions (Answer "Yes" = Risk):**
+  • Question 2: "Have you ever wondered if your child is deaf?"
+  • Question 5: "Does your child make unusual finger movements near eyes?"
+  • Question 12: "Does your child get upset by everyday noises?"
+  
+  **All Other Questions (Answer "No" = Risk):**
+  • Questions 1, 3, 4, 6-11, 13-20
+  
+  **Risk Levels:**
+  • Low Risk (0-2): Continue monitoring
+  • Medium Risk (3-7): Follow-up interview recommended
+  • High Risk (8-20): Immediate professional evaluation
+  
+  **Database Tables Involved:**
+  • assessments (main assessment record)
+  • responses (individual question answers)
+  • children (child profile information)
+  • questionnaire_questions (M-CHAT-R questions)
+  • scoring_ranges (risk level definitions)
+end note
+
+@enduml

@@ -8,24 +8,68 @@ import { logger } from '@/lib/logger'
 export const dynamic = 'force-dynamic'
 
 // System message for the AI assistant
-const SYSTEM_MESSAGE = `You are an autism information specialist providing accurate, research-based information about autism spectrum disorder (ASD). Your role is to:
+const SYSTEM_MESSAGE = `You are a helpful AI assistant. You can answer questions on a wide variety of topics including but not limited to:
 
-1. Provide evidence-based information about autism symptoms, diagnosis, and interventions
-2. Offer supportive guidance for parents and caregivers
-3. Explain developmental milestones and early signs
-4. Discuss available therapies and educational approaches
-5. Address common concerns and misconceptions
-6. Suggest when to seek professional help
+- General knowledge and information
+- Health and medical topics (while noting when professional consultation is needed)
+- Technology and science
+- Education and learning
+- Autism and developmental topics
+- Parenting and child development
+- And many other subjects
 
-Always be empathetic, non-judgmental, and supportive. Avoid making diagnoses or providing medical advice.
-Encourage users to consult with healthcare professionals for personalized guidance.
-
-Important: Always remind users that this information is for educational purposes and not a substitute for professional medical advice.`
+Provide accurate, helpful, and well-structured responses. When discussing medical or health topics, always remind users to consult with healthcare professionals for personalized advice. Be empathetic, supportive, and maintain a professional tone.`
 
 type DeepSeekMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
 };
+
+async function queryOpenAIModel(messages: any[]) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  // Format messages for OpenAI API
+  const formattedMessages: any[] = [
+    {
+      role: 'system',
+      content: SYSTEM_MESSAGE
+    }
+  ];
+
+  // Add conversation history
+  messages.forEach((msg: any) => {
+    if (msg.role === 'user' || msg.role === 'assistant') {
+      formattedMessages.push({
+        role: msg.role,
+        content: msg.content
+      });
+    }
+  });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-3.5-turbo',
+      messages: formattedMessages,
+      temperature: 0.7,
+      max_tokens: 1000
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  return result.choices[0]?.message?.content || 'I apologize, but I couldn\'t generate a response.';
+}
 
 async function queryDeepSeekModel(messages: any[]) {
   if (!process.env.DEEPSEEK_API_KEY) {
@@ -50,8 +94,8 @@ async function queryDeepSeekModel(messages: any[]) {
     }
   });
 
-  const API_URL = process.env.DEEPSEEK_API_BASE_URL || 'https://api.deepseek.com/v1/chat/completions';
-  
+  const API_URL = 'https://api.deepseek.com/v1/chat/completions';
+
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -59,10 +103,11 @@ async function queryDeepSeekModel(messages: any[]) {
       'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
     },
     body: JSON.stringify({
-      model: 'deepseek-chat', // Update with the correct model name
+      model: 'deepseek-chat',
       messages: formattedMessages,
       temperature: 0.7,
-      max_tokens: 1000
+      max_tokens: 1000,
+      stream: false
     })
   });
 
@@ -75,8 +120,8 @@ async function queryDeepSeekModel(messages: any[]) {
   return result.choices[0]?.message?.content || 'I apologize, but I couldn\'t generate a response.';
 }
 
-// Apply rate limiting to the POST handler
-const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
+// Temporarily disable rate limiting for development
+const rateLimitedPOST = async (req: NextRequest) => {
   try {
     const cookieStore = cookies()
     const supabase = createServerClient(
@@ -104,14 +149,14 @@ const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check external API rate limit
-    const canCallExternalApi = await checkExternalApiLimit('deepseek', session.user.id)
-    if (!canCallExternalApi) {
-      return NextResponse.json(
-        { error: 'External API rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      )
-    }
+    // Temporarily disable external API rate limiting for development
+    // const canCallExternalApi = await checkExternalApiLimit('openai', session.user.id)
+    // if (!canCallExternalApi) {
+    //   return NextResponse.json(
+    //     { error: 'External API rate limit exceeded. Please try again later.' },
+    //     { status: 429 }
+    //   )
+    // }
 
     const { messages } = await req.json()
 
@@ -120,7 +165,7 @@ const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
       component: 'chat-api',
     })
     try {
-      // Get response from the DeepSeek model
+      // Use DeepSeek as primary API (OpenAI quota exceeded)
       const aiResponse = await queryDeepSeekModel(messages);
       logger.info('Received response from DeepSeek', {
         userId: session.user.id,
@@ -149,7 +194,7 @@ const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
       })
 
     } catch (apiError) {
-      logger.error('DeepSeek API Error', apiError as Error, {
+      logger.error('Chat API Error', apiError as Error, {
         userId: session.user.id,
         component: 'chat-api',
       })
@@ -165,7 +210,7 @@ const rateLimitedPOST = withRateLimit('chat')(async (req: NextRequest) => {
       { status: 500 }
     )
   }
-})
+}
 
-// Export the rate-limited handler
+// Export the handler
 export const POST = rateLimitedPOST

@@ -1,0 +1,356 @@
+@startuml Early_Autism_Detection_Activity_Diagram
+!theme aws-orange
+title Early Autism Detection App - Complete Activity Diagram
+
+start
+:User Visits App;
+
+if (Choose Login Type?) then (Public User)
+  :Public User Login;
+  if (Authentication Valid?) then (Yes)
+    :Public Dashboard;
+    
+    repeat
+      switch (Choose Action?)
+      case (Manage Children)
+        :Child Management;
+        switch (Child Actions?)
+        case (Add Child)
+          :Fill Child Information;
+          :Save to Database;
+          :Child Added Successfully;
+        case (Edit Child)
+          :Update Child Information;
+          :Update Database;
+          :Child Updated Successfully;
+        case (Delete Child)
+          if (Confirm Deletion?) then (Yes)
+            :Remove from Database;
+            :Child Deleted Successfully;
+          else (No)
+            :Return to Dashboard;
+          endif
+        case (View History)
+          :View Assessment History;
+        endswitch
+        
+      case (Take Assessment)
+        :Select Child;
+        :Start M-CHAT-R Assessment;
+        :Create Assessment Record;
+        
+        repeat
+          :Display Question;
+          :User Answers Question;
+          :Save Response to Database;
+        repeat while (More Questions?) is (Yes)
+        
+        :Calculate Risk Score;
+        :Determine Risk Level;
+        
+        switch (Risk Level?)
+        case (Low Risk 0-2)
+          :Low Risk Result;
+        case (Medium Risk 3-7)
+          :Medium Risk Result;
+        case (High Risk 8-20)
+          :High Risk Result;
+          :Suggest Autism Centers;
+        endswitch
+        
+        :Save Assessment Results;
+        :Display Results to User;
+        
+      case (Find Centers)
+        :Auto-detect User Location;
+        :Fetch Nearby Centers;
+        :Display Interactive Map;
+        
+        repeat
+          switch (User Actions?)
+          case (Filter Centers)
+            :Apply Filters;
+            :Update Map Display;
+          case (View Center Details)
+            :Show Center Information;
+            switch (Center Actions?)
+            case (Save Center)
+              :Save to Favorites;
+              :Update Saved Locations;
+            case (Get Directions)
+              :Open Navigation Page;
+              :Calculate Route;
+              :Show Route on Map;
+              :Begin Navigation;
+            case (Call Center)
+              :Initiate Phone Call;
+            case (Visit Website)
+              :Open Center Website;
+            endswitch
+          case (Refresh Centers)
+            :Reload Center Data;
+          endswitch
+        repeat while (Continue Using Map?) is (Yes)
+        
+      case (AI Chat)
+        :Open Chat Interface;
+        :Load Chat History;
+        :Display Chat Interface;
+        
+        repeat
+          :User Types Message;
+          :Send to AI;
+          :AI Processes Message;
+          :Generate AI Response;
+          :Save to Chat History;
+          :Display AI Response;
+        repeat while (Continue Chatting?) is (Yes)
+        
+      case (View Progress)
+        :Progress Tracking;
+        switch (Progress Actions?)
+        case (View Milestones)
+          :Display Milestones;
+        case (Add Milestone)
+          :Fill Milestone Details;
+          :Save to Database;
+          :Milestone Added;
+        case (View Interventions)
+          :Display Interventions;
+        case (Add Intervention)
+          :Fill Intervention Details;
+          :Save to Database;
+          :Intervention Added;
+        case (Add Progress Note)
+          :Fill Progress Note;
+          :Save to Database;
+          :Note Added;
+        endswitch
+      endswitch
+    repeat while (Continue Using App?) is (Yes)
+    
+  else (No)
+    :Show Error Message;
+    if (Retry Login?) then (Yes)
+      :Return to Login;
+    else (No)
+      :Return to Landing Page;
+    endif
+  endif
+
+elseif (Center Portal) then
+  :Center Portal Login;
+  if (Center Authentication Valid?) then (Yes)
+    :Center Dashboard;
+    
+    repeat
+      switch (Center Management?)
+      case (Update Profile)
+        :Fill Center Details;
+        :Update Database;
+        :Sync to User Locator;
+        :Center Updated Successfully;
+      case (View Statistics)
+        :View Center Statistics;
+      case (Manage Services)
+        :Update Services Offered;
+      endswitch
+    repeat while (Continue Managing?) is (Yes)
+    
+  else (No)
+    :Show Error Message;
+    if (Retry Login?) then (Yes)
+      :Return to Center Login;
+    else (No)
+      :Return to Landing Page;
+    endif
+  endif
+
+elseif (Admin) then
+  :Admin Login;
+  if (Admin Authentication Valid?) then (Yes)
+    :Admin Dashboard;
+    
+    repeat
+      switch (Admin Actions?)
+      case (Manage Users)
+        switch (User Actions?)
+        case (View Users)
+          :Display All Users;
+        case (User Details)
+          :View User Details;
+        case (Delete User)
+          :Remove User Account;
+        endswitch
+        
+      case (Manage Assessments)
+        switch (Assessment Actions?)
+        case (View All Assessments)
+          :Display All Assessments;
+        case (Assessment Details)
+          :View Assessment Details;
+        case (Export Data)
+          :Export Assessment Data;
+        endswitch
+        
+      case (Manage Centers)
+        switch (Center Actions?)
+        case (View Centers)
+          :Display All Centers;
+        case (Add Center)
+          :Add New Center;
+        case (Edit Center)
+          :Edit Center Details;
+        case (Delete Center)
+          :Remove Center;
+        case (Verify Center)
+          :Verify Center Status;
+        endswitch
+        
+      case (View Analytics)
+        :Display Analytics Dashboard;
+        switch (Analytics Actions?)
+        case (User Statistics)
+          :View User Statistics;
+        case (Assessment Statistics)
+          :View Assessment Statistics;
+        case (Risk Distribution)
+          :View Risk Distribution;
+        case (Export Reports)
+          :Export Analytics Reports;
+        endswitch
+        
+      case (Manage Questions)
+        switch (Question Actions?)
+        case (View Questions)
+          :Display All Questions;
+        case (Add Question)
+          :Add New Question;
+        case (Edit Question)
+          :Edit Question Details;
+        case (Delete Question)
+          :Remove Question;
+        case (Configure Scoring)
+          :Configure Risk Scoring;
+        endswitch
+      endswitch
+    repeat while (Continue Admin Tasks?) is (Yes)
+    
+  else (No)
+    :Show Error Message;
+    if (Retry Login?) then (Yes)
+      :Return to Admin Login;
+    else (No)
+      :Return to Landing Page;
+    endif
+  endif
+
+else (New User)
+  :Register Account;
+  :Fill Registration Form;
+  :Create Supabase Account;
+  :Auto-create Profile;
+  :Redirect to Login;
+endif
+
+:Logout;
+:Clear User Session;
+stop
+
+note right of start
+  **System Features:**
+  • Multi-user authentication
+  • M-CHAT-R Assessment (20 questions)
+  • Real-time center locator
+  • AI-powered chatbot
+  • Progress tracking
+  • Admin management
+  • Center portal
+end note
+
+note left of stop
+  **Database Operations:**
+  • Auto-profile creation
+  • Real-time data sync
+  • Assessment scoring
+  • Statistics updates
+  • Session management
+end note
+
+' System Background Processes
+partition "Background System Processes" {
+  note as N1
+    **Automated Triggers:**
+    • Profile creation on user registration
+    • Assessment scoring calculation
+    • Center data synchronization
+    • Statistics updates
+    • Session management
+    • Email notifications
+  end note
+}
+
+' Database Operations
+partition "Database Operations" {
+  :Trigger: Create Profile| #LightBlue
+  :Update User Statistics| #LightBlue
+  :Update Assessment Statistics| #LightBlue
+  :Trigger: Sync Center Data| #LightBlue
+  :Auto-calculate Risk Scores| #LightBlue
+  :Update Real-time Analytics| #LightBlue
+}
+
+' Error Handling Flows
+partition "Error Handling" {
+  :Database Connection Error| #Pink
+  :Authentication Failure| #Pink
+  :Assessment Save Error| #Pink
+  :Center Sync Error| #Pink
+  :Session Timeout| #Pink
+  :API Rate Limit| #Pink
+}
+
+' Integration Points
+partition "External Integrations" {
+  :Geoapify API (Maps)| #LightGreen
+  :Geoapify Geocoding| #LightGreen
+  :Geoapify Routing| #LightGreen
+  :AI Chat Service| #LightGreen
+  :Email Service| #LightGreen
+  :Supabase Auth| #LightGreen
+}
+
+' Data Flow Annotations
+note as DataFlow
+  **Key Data Flows:**
+  1. User Registration → Profile Creation
+  2. Assessment Completion → Risk Calculation
+  3. Center Updates → Real-time Sync
+  4. Chat Messages → AI Processing
+  5. Progress Updates → Statistics
+  6. Admin Changes → System Updates
+end note
+
+' Security & Privacy
+note as Security
+  **Security Features:**
+  • Row Level Security (RLS)
+  • JWT Authentication
+  • Password Hashing
+  • Session Management
+  • Data Encryption
+  • GDPR Compliance
+end note
+
+' Performance Optimizations
+note as Performance
+  **Performance Features:**
+  • Database Indexing
+  • Query Optimization
+  • Caching Strategies
+  • Lazy Loading
+  • Image Optimization
+  • CDN Integration
+end note
+
+@enduml

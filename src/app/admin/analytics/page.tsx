@@ -28,10 +28,42 @@ export default function AdminAnalyticsPage() {
   const loadAnalyticsData = useCallback(async (selectedTimeRange?: '7d' | '30d' | '90d') => {
     try {
       const range = selectedTimeRange || timeRange
-      const data = await getAnalyticsData(range)
-      setAnalytics(data)
+      console.log('🔄 Loading analytics data for range:', range)
+
+      // Use API endpoint instead of direct database calls
+      const response = await fetch(`/api/admin/analytics?timeRange=${range}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch analytics: ${response.statusText}`)
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        console.log('📊 Analytics data loaded:', result.data)
+        setAnalytics(result.data)
+      } else {
+        throw new Error(result.error || 'Failed to load analytics data')
+      }
     } catch (error) {
       console.error('Error loading analytics data:', error)
+      // Set fallback data on error
+      setAnalytics({
+        keyMetrics: {
+          totalUsers: 0,
+          totalAssessments: 0,
+          locationSearches: 0,
+          avgSessionTime: '0m',
+          userGrowth: '0%',
+          assessmentGrowth: '0%',
+          locationGrowth: '0%',
+          sessionGrowth: '0%'
+        },
+        userGrowthData: [],
+        riskDistribution: { low: 0, medium: 0, high: 0, total: 0 },
+        popularLocations: [],
+        timeRange: timeRange
+      })
     }
   }, [timeRange])
 

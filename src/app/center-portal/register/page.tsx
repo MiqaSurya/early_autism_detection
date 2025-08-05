@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { LogoIcon } from '@/components/ui/logo'
 import { Eye, EyeOff, User, Mail, Lock, Building2, Phone, MapPin, ArrowLeft } from 'lucide-react'
 

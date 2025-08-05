@@ -1,0 +1,284 @@
+@startuml Center_Management_Workflow
+!theme aws-orange
+title Autism Center Management & Locator Workflow
+
+' User Center Locator Flow
+partition "User Center Locator" #LightBlue {
+  start
+  :User Selects "Find Centers";
+  
+  ' Location Detection
+  :Request User Location Permission;
+  if (Location Permission Granted?) then (Yes)
+    :Auto-detect GPS Location;
+    :Set Default Location (KL: 3.1390, 101.6869);
+  else (No)
+    :Use Default Location (Kuala Lumpur);
+  endif
+  
+  ' Data Fetching
+  :Fetch Centers from Database;
+  note right
+    Sources:
+    • center_users (real-time)
+    • autism_centers (existing)
+    ID-based fetching ensures
+    automatic sync
+  end note
+  
+  :Calculate Distances from User Location;
+  :Sort Centers by Distance;
+  
+  ' Map Display
+  :Initialize Leaflet Map;
+  :Add Geoapify Tiles;
+  :Center Map on User Location;
+  
+  repeat
+    :Display Center Markers;
+    note right
+      Color-coded by type:
+      • Diagnostic (Blue)
+      • Therapy (Green)
+      • Support (Orange)
+      • Education (Purple)
+    end note
+    
+    :Show Filter Controls;
+    :Display Center List;
+    
+    switch (User Action?)
+    case (Apply Filters)
+      :Filter by Center Type;
+      :Filter by Distance Radius;
+      :Filter by Services;
+      :Update Map Display;
+      
+    case (Select Center)
+      :Show Center Details Modal;
+      :Display Center Information;
+      
+      switch (Center Action?)
+      case (Save to Favorites)
+        :Add to Saved Locations;
+        :Update User Preferences;
+        :Show Success Message;
+        
+      case (Get Directions)
+        :Open Navigation Page;
+        :Calculate Route using Geoapify;
+        :Display Route on Map;
+        :Show Turn-by-turn Directions;
+        :Start Navigation;
+        
+      case (Call Center)
+        :Initiate Phone Call;
+        
+      case (Visit Website)
+        :Open Center Website;
+        
+      case (View Reviews)
+        :Display Center Reviews;
+        :Show Rating Information;
+      endswitch
+      
+    case (Refresh Centers)
+      :Reload Center Data;
+      :Update Real-time Information;
+      
+    case (Search Address)
+      :Use Geoapify Geocoding;
+      :Convert Address to Coordinates;
+      :Update Map Center;
+    endswitch
+    
+  repeat while (Continue Using Locator?) is (Yes)
+  
+  :Return to Dashboard;
+  stop
+}
+
+' Center Portal Management
+partition "Center Portal Management" #LightGreen {
+  start
+  :Center User Login;
+  
+  if (Authentication Valid?) then (Yes)
+    :Load Center Dashboard;
+    :Display Center Statistics;
+    
+    repeat
+      switch (Center Management Action?)
+      case (Update Profile)
+        :Load Current Center Information;
+        :Display Edit Form;
+        
+        :Center Updates Information;
+        :Validate Input Data;
+        
+        if (Address Changed?) then (Yes)
+          :Use Geoapify Geocoding;
+          :Get New Coordinates;
+          :Update Map Marker;
+        endif
+        
+        :Save to center_users Table;
+        :Trigger Real-time Sync;
+        note right
+          Automatic sync to autism_centers
+          via database triggers ensures
+          immediate visibility in user locator
+        end note
+        
+        :Update Success Message;
+        
+      case (Manage Services)
+        :Display Services List;
+        :Allow Add/Edit/Remove Services;
+        :Update Services Array;
+        :Save Changes;
+        
+      case (Update Operating Hours)
+        :Display Hours Editor;
+        :Update JSONB Hours Data;
+        :Save to Database;
+        
+      case (View Statistics)
+        :Display Center Analytics;
+        :Show View Counts;
+        :Show Contact Statistics;
+        :Show Favorite Counts;
+        
+      case (Manage Photos)
+        :Upload Center Images;
+        :Update Photo Gallery;
+        :Set Featured Image;
+      endswitch
+      
+    repeat while (Continue Managing?) is (Yes)
+    
+  else (No)
+    :Show Login Error;
+    :Return to Login Page;
+  endif
+  
+  :Logout;
+  stop
+}
+
+' Admin Center Management
+partition "Admin Center Management" #Orange {
+  start
+  :Admin Login;
+  
+  if (Admin Authentication Valid?) then (Yes)
+    :Load Admin Center Management;
+    :Display All Centers;
+    
+    repeat
+      switch (Admin Action?)
+      case (View All Centers)
+        :Fetch from Both Tables;
+        :Display Unified Center List;
+        :Show Verification Status;
+        
+      case (Add New Center)
+        :Display Center Creation Form;
+        :Admin Fills Center Details;
+        :Validate Information;
+        :Save to autism_centers Table;
+        :Set Verification Status;
+        
+      case (Edit Center)
+        :Load Center Details;
+        :Display Edit Form;
+        :Admin Updates Information;
+        :Save Changes;
+        :Update Sync Status;
+        
+      case (Verify Center)
+        :Review Center Information;
+        :Check Business License;
+        :Update Verification Status;
+        :Send Notification to Center;
+        
+      case (Delete Center)
+        if (Confirm Deletion?) then (Yes)
+          :Remove from Database;
+          :Update Related Records;
+          :Log Deletion Action;
+        else (No)
+          :Cancel Deletion;
+        endif
+        
+      case (Bulk Operations)
+        :Select Multiple Centers;
+        :Apply Bulk Actions;
+        :Update Status/Verification;
+        
+      case (Export Data)
+        :Generate Center Report;
+        :Export to CSV/Excel;
+        :Include Statistics;
+      endswitch
+      
+    repeat while (Continue Admin Tasks?) is (Yes)
+    
+  else (No)
+    :Show Admin Login Error;
+    :Return to Admin Login;
+  endif
+  
+  :Admin Logout;
+  stop
+}
+
+' Real-time Synchronization Process
+partition "Real-time Sync System" #LightCyan {
+  :Center Updates Profile;
+  :Database Trigger Activated;
+  
+  if (center_users Record Updated?) then (Yes)
+    :Auto-update autism_centers;
+    :Sync All Fields;
+    :Update Timestamps;
+    :Maintain ID Relationship;
+  endif
+  
+  :User Locator Fetches Data;
+  :ID-based Query Ensures Sync;
+  :Display Updated Information;
+  :Real-time Visibility Achieved;
+}
+
+note bottom
+  **Key Features:**
+  
+  **User Locator:**
+  • Auto-location detection
+  • Real-time center data
+  • Interactive mapping
+  • Distance calculation
+  • Turn-by-turn navigation
+  
+  **Center Portal:**
+  • Self-service management
+  • Real-time updates
+  • Statistics dashboard
+  • Photo management
+  
+  **Admin Management:**
+  • Verification system
+  • Bulk operations
+  • Data export
+  • Audit logging
+  
+  **Technical Implementation:**
+  • Geoapify API integration
+  • Leaflet mapping
+  • Real-time database sync
+  • ID-based fetching
+  • Responsive design
+end note
+
+@enduml

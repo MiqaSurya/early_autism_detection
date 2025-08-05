@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SavedLocation } from '@/types/location'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 
 export function useSavedLocations() {
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([])

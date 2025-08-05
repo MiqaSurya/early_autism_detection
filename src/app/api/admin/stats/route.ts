@@ -64,10 +64,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: authError.message }, { status: 500 })
     }
 
-    // Get assessments data
+    // Get assessments data - note: assessments table has child_id, not user_id
     const { data: assessments, error: assessmentsError } = await supabaseAdmin
       .from('assessments')
-      .select('user_id, id, created_at, completed')
+      .select('child_id, id, started_at, completed_at, status')
 
     if (assessmentsError) {
       console.error('❌ Assessments error:', assessmentsError)

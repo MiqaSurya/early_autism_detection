@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft, Users, Plus, BarChart3, Calendar, TrendingUp, Target, FileText, Award, AlertTriangle, Trash2, User, Edit } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { AssessmentHistory } from '@/components/progress/assessment-history'
 
 type Child = {
   id: string
@@ -630,6 +631,13 @@ export default function ProgressPage() {
                     New Assessment
                   </Link>
                 </div>
+              </div>
+            )}
+
+            {/* Assessment History Section */}
+            {progressData[selectedChildId].totalAssessments > 0 && (
+              <div className="mt-8">
+                <AssessmentHistory childId={selectedChildId} />
               </div>
             )}
 

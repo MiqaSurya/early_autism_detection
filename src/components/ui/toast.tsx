@@ -21,7 +21,7 @@ export function Toast({
 }: ToastProps) {
   // Auto-close toast after duration
   useEffect(() => {
-    if (open) {
+    if (open && duration > 0) {
       const timer = setTimeout(() => {
         setOpen(false)
       }, duration)
@@ -32,14 +32,15 @@ export function Toast({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 flex items-end px-4 py-6 pointer-events-none sm:p-6 sm:items-start z-50">
-      <div className="w-full flex flex-col items-center space-y-4 sm:items-end">
-        <div 
+    <div className="fixed top-4 right-4 z-[9999] pointer-events-none">
+      <div className="w-full flex flex-col items-end space-y-4">
+        <div
           className={`
             max-w-sm w-full shadow-lg rounded-lg pointer-events-auto overflow-hidden
-            transition-all duration-300 transform translate-y-0 opacity-100
-            ${variant === 'destructive' ? 'bg-red-50' : 'bg-white'}
+            transition-all duration-300 transform translate-y-0 opacity-100 border cursor-pointer
+            ${variant === 'destructive' ? 'bg-red-50 border-red-200 hover:bg-red-100' : 'bg-white border-gray-200 hover:bg-gray-50'}
           `}
+          onClick={() => setOpen(false)}
         >
           <div className="p-4">
             <div className="flex items-start">
@@ -70,8 +71,14 @@ export function Toast({
               </div>
               <div className="ml-4 flex-shrink-0 flex">
                 <button
-                  className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  onClick={() => setOpen(false)}
+                  type="button"
+                  className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 p-1 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setOpen(false)
+                  }}
+                  aria-label="Close notification"
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

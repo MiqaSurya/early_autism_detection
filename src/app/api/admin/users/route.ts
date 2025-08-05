@@ -82,10 +82,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       console.error('❌ Children error:', childrenError)
     }
 
-    // Get assessments data
+    // Get assessments data - note: assessments table has child_id, not user_id
     const { data: assessments, error: assessmentsError } = await supabaseAdmin
       .from('assessments')
-      .select('user_id, id, created_at, completed')
+      .select('child_id, id, started_at, completed_at, status')
 
     if (assessmentsError) {
       console.error('❌ Assessments error:', assessmentsError)
@@ -102,7 +102,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const users = (authUsers?.users || []).map(user => {
       const profile = profiles?.find(p => p.id === user.id)
       const userChildren = children?.filter(c => c.parent_id === user.id) || []
-      const userAssessments = assessments?.filter(a => a.user_id === user.id) || []
+      // Get assessments for this user's children
+      const userAssessments = assessments?.filter(a =>
+        userChildren.some(child => child.id === a.child_id)
+      ) || []
 
       return {
         id: user.id,

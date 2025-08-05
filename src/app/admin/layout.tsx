@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isCurrentUserAdmin, adminLogout } from '@/lib/admin-auth'
 import Link from 'next/link'
-import { LogOut, Users, BarChart3, Settings, Home, MessageSquare, MapPin, Building2 } from 'lucide-react'
+import { LogOut, Users, BarChart3, Home, MessageSquare, MapPin, Building2 } from 'lucide-react'
 import { Toaster } from '@/components/ui/toaster'
 
 export default function AdminLayout({
@@ -56,7 +56,6 @@ export default function AdminLayout({
     { href: '/admin/assessments', label: 'Assessments', icon: MessageSquare },
     { href: '/admin/locations', label: 'Locations', icon: MapPin },
     { href: '/admin/center-users', label: 'Center Users', icon: Building2 },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
   ]
 
   return (

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 // Using simple modal instead of Dialog component
 // Using native HTML form elements for better compatibility
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { Calendar, User } from 'lucide-react'
 
 interface CreateChildDialogProps {

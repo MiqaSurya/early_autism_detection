@@ -2,7 +2,6 @@ import './globals.css'
 import 'leaflet/dist/leaflet.css'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import { ToastProvider } from '@/components/ui/use-toast'
 import { Toaster } from '@/components/ui/toaster'
 import { GlobalErrorBoundary } from '@/components/error/GlobalErrorBoundary'
 import { AnalyticsProvider } from '@/components/providers/AnalyticsProvider'
@@ -93,10 +92,8 @@ export default function RootLayout({
       <body className={`${inter.className} bg-white text-gray-900`}>
         <GlobalErrorBoundary>
           <AnalyticsProvider>
-            <ToastProvider>
-              {children}
-              <Toaster />
-            </ToastProvider>
+            {children}
+            <Toaster />
           </AnalyticsProvider>
         </GlobalErrorBoundary>
       </body>

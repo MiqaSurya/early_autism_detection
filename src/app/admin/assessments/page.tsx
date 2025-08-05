@@ -1,21 +1,22 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { 
-  FileText, 
-  Users, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Search, 
-  Filter, 
-  Edit, 
-  Trash2, 
+import {
+  FileText,
+  Users,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Search,
+  Filter,
+  Edit,
+  Trash2,
   RefreshCw,
   Eye,
   Save,
-  X
+  X,
+  Plus
 } from 'lucide-react'
 import {
   getAllAssessments,
@@ -54,17 +55,48 @@ export default function AdminAssessmentsPage() {
 
   const loadAssessmentData = useCallback(async () => {
     try {
-      const [assessmentsData, statsData, questionsData] = await Promise.all([
-        getAllAssessments(),
-        getAssessmentStats(),
+      console.log('🔄 Loading assessment data for admin...')
+
+      // Use API endpoint instead of direct database calls
+      const [assessmentsResponse, questionsData] = await Promise.all([
+        fetch('/api/admin/assessments'),
         getQuestionnaireQuestions()
       ])
 
-      setAssessments(assessmentsData)
-      setStats(statsData)
+      if (!assessmentsResponse.ok) {
+        throw new Error(`Failed to fetch assessments: ${assessmentsResponse.statusText}`)
+      }
+
+      const assessmentsData = await assessmentsResponse.json()
+
+      console.log('📊 Admin assessment data loaded:', {
+        assessments: assessmentsData.assessments?.length || 0,
+        stats: assessmentsData.stats,
+        questions: questionsData.length
+      })
+
+      setAssessments(assessmentsData.assessments || [])
+      setStats(assessmentsData.stats || {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        lowRisk: 0,
+        mediumRisk: 0,
+        highRisk: 0
+      })
       setQuestions(questionsData)
     } catch (error) {
       console.error('Error loading assessment data:', error)
+      // Set empty data on error
+      setAssessments([])
+      setStats({
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        lowRisk: 0,
+        mediumRisk: 0,
+        highRisk: 0
+      })
     }
   }, [])
 
@@ -103,12 +135,22 @@ export default function AdminAssessmentsPage() {
 
   const handleUpdateAssessment = async (assessmentId: string, updates: any) => {
     try {
-      const result = await updateAssessmentResult(assessmentId, updates)
-      if (result.success) {
+      const response = await fetch('/api/admin/assessments', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ assessmentId, updates })
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
         await loadAssessmentData()
         setEditingAssessment(null)
+        alert('Assessment updated successfully!')
       } else {
-        alert('Failed to update assessment: ' + result.error)
+        alert('Failed to update assessment: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Error updating assessment:', error)
@@ -122,11 +164,17 @@ export default function AdminAssessmentsPage() {
     }
 
     try {
-      const result = await deleteAssessment(assessmentId)
-      if (result.success) {
+      const response = await fetch(`/api/admin/assessments?id=${assessmentId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
         await loadAssessmentData()
+        alert('Assessment deleted successfully!')
       } else {
-        alert('Failed to delete assessment: ' + result.error)
+        alert('Failed to delete assessment: ' + (result.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Error deleting assessment:', error)
@@ -652,10 +700,37 @@ function QuestionnaireManager({
   const [editingQuestion, setEditingQuestion] = useState<QuestionnaireQuestion | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [initializing, setInitializing] = useState(false)
 
   useEffect(() => {
     setLocalQuestions(questions)
   }, [questions])
+
+  const handleInitializeQuestionnaire = async () => {
+    setInitializing(true)
+    try {
+      const response = await fetch('/api/admin/init-questionnaire', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        alert('Questionnaire system initialized successfully! Please refresh the page.')
+        window.location.reload()
+      } else {
+        alert('Failed to initialize questionnaire system: ' + (result.details?.questionInitialization?.error || result.error))
+      }
+    } catch (error) {
+      console.error('Error initializing questionnaire:', error)
+      alert('Error initializing questionnaire system. Please check the console for details.')
+    } finally {
+      setInitializing(false)
+    }
+  }
 
   const handleAddQuestion = async (questionData: {
     text: string
@@ -738,13 +813,35 @@ function QuestionnaireManager({
 
       <div className="flex justify-between items-center">
         <h4 className="text-md font-medium text-gray-900">Current Questions ({localQuestions.length})</h4>
-        <button
-          onClick={() => setShowAddForm(true)}
-          disabled={loading}
-          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-        >
-          <span>Add New Question</span>
-        </button>
+        <div className="flex space-x-2">
+          {localQuestions.length === 0 && (
+            <button
+              onClick={handleInitializeQuestionnaire}
+              disabled={initializing}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {initializing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Initializing...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  <span>Initialize M-CHAT-R Questions</span>
+                </>
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            disabled={loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add New Question</span>
+          </button>
+        </div>
       </div>
 
       {/* Add Question Form */}
@@ -758,7 +855,27 @@ function QuestionnaireManager({
 
       {/* Questions List */}
       <div className="space-y-3 max-h-96 overflow-y-auto">
-        {localQuestions.map((question) => (
+        {localQuestions.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-gray-500 mb-4">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Questions Found</h3>
+            <p className="text-gray-500 mb-4">
+              The M-CHAT-R questionnaire questions haven't been initialized yet.
+              <br />
+              Click "Initialize M-CHAT-R Questions" to set up the default 20 questions.
+            </p>
+            <p className="text-sm text-amber-600">
+              <strong>Note:</strong> This requires the questionnaire_questions table to exist in your database.
+              <br />
+              If initialization fails, please run the SQL script manually in Supabase.
+            </p>
+          </div>
+        ) : (
+          localQuestions.map((question) => (
           <div key={question.id} className="border border-gray-200 rounded-lg p-4">
             {editingQuestion?.id === question.id ? (
               <EditQuestionForm
@@ -810,7 +927,8 @@ function QuestionnaireManager({
               </div>
             )}
           </div>
-        ))}
+          ))
+        )}
       </div>
 
       <div className="flex justify-end">
