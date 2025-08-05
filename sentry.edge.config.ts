@@ -1,6 +1,6 @@
 // Temporarily disable Sentry to fix OpenTelemetry deployment issues
 if (false && process.env.NODE_ENV === 'production') {
-  const Sentry = {}
+  const Sentry = { init: () => {} }
 
   Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,

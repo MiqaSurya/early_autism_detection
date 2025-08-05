@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { LogoIcon } from '@/components/ui/logo'
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, Building2 } from 'lucide-react'
 

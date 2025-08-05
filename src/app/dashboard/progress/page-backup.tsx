@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
